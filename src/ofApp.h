@@ -20,6 +20,9 @@ class ofApp : public ofBaseApp
     void light(int c);
     void credits();
     void timeout();
+    void reset();
+    void loose();
+    void win();
 
     std::vector<ofFile> shuffle_file_list(std::string path);
 
@@ -52,5 +55,5 @@ class ofApp : public ofBaseApp
     ofFbo m_fbo;
 
     bool m_new_tone{true};
-    float m_delay{1.}; // time between each note;
+    float m_delay{1.}; // time in second between each note
 };

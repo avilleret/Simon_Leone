@@ -133,7 +133,7 @@ void ofApp::wait()
 {
   // ofLogNotice("Simon Leone") << "wait ";
 
-  if(ofGetElapsedTimef() > (14.0 * m_delay) )
+  if(ofGetElapsedTimef() > (m_sequence_size * m_delay) )
     m_status = TIME_OUT;
 }
 
@@ -175,6 +175,24 @@ void ofApp::win()
 {
   ofLogNotice("Simon Leon") << "Win !";
   tone(5);
+  while(m_samplers[5].isPlaying())
+  {
+    return;
+  }
+  if (!m_player.isLoaded())
+  {
+    std::vector<std::vector<ofFile>* > colors =
+    { &m_gagne_rouge, &m_gagne_jaune, &m_gagne_vert, &m_gagne_bleu };
+    auto choice = colors[m_sequence.back().first];
+    int index = ofRandom(choice->size());
+    m_player.load((*choice)[index].path());
+    m_player.setLoopState(OF_LOOP_NONE);
+    m_player.play();
+  } else if (m_player.getIsMovieDone())
+  {
+    m_player.close();
+    reset();
+  }
 }
 
 void ofApp::replay_sequence()
@@ -188,8 +206,8 @@ void ofApp::replay_sequence()
     // si on a déjà joué toutes les réponses
     if ( m_seq_it == m_sequence.end() )
     {
-      // et qu'on a joué 14 séquences
-      if(m_sequence.size() == 14)
+      // et qu'on a joué assez de séquences
+      if(m_sequence.size() == m_sequence_size)
       {
         // alors on a gagné
         m_player.close();
@@ -371,7 +389,7 @@ void ofApp::light(int c)
 void ofApp::reset()
 {
   m_sequence.clear();
-  m_sequence.reserve(14);
+  m_sequence.reserve(m_sequence_size);
   m_sequence.push_back(random_choice());
   m_seq_it = m_sequence.begin();
 

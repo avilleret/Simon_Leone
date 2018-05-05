@@ -52,6 +52,8 @@ class ofApp : public ofBaseApp
     enum GameStatus { WAIT, PLAY, REPLAY, LOSE, WIN, GAME_OVER, TIME_OUT };
     GameStatus m_status;
 
+    int m_sequence_size{14};
+
     ofFbo m_fbo;
 
     bool m_new_tone{true};

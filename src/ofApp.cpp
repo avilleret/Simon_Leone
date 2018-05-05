@@ -2,7 +2,7 @@
 
 void ofApp::setup()
 {
-  ofSetLogLevel(OF_LOG_VERBOSE);
+  ofSetLogLevel(OF_LOG_NOTICE);
 
   m_rouge = shuffle_file_list("movie/rouge/");
   m_jaune = shuffle_file_list("movie/jaune/");
@@ -46,6 +46,7 @@ std::vector<ofFile> ofApp::shuffle_file_list(std::string path)
 {
   ofDirectory dir;
 
+  dir.allowExt("mp4");
   dir.listDir(path);
   vector<ofFile> shuffled = dir.getFiles();
   std::random_shuffle(begin(shuffled),end(shuffled));
@@ -58,7 +59,7 @@ std::pair<int, std::string> ofApp::random_choice()
   std::vector<std::vector<ofFile>* > colors =
     { &m_rouge, &m_jaune, &m_vert, &m_bleu };
 
-  int color = ofRandom(3);
+  int color = ofRandom(4);
   auto shuffled = colors[color];
 
   auto file = shuffled->back();
@@ -74,10 +75,6 @@ std::pair<int, std::string> ofApp::random_choice()
 }
 
 void ofApp::update()
-{
-}
-
-void ofApp::draw()
 {
   switch(m_status)
   {
@@ -96,8 +93,8 @@ void ofApp::draw()
     case GAME_OVER:
       credits();
       break;
-    case LOOSE:
-      loose();
+    case LOSE:
+      lose();
       break;
     case WIN:
       win();
@@ -130,7 +127,6 @@ void ofApp::play_sequence()
      m_new_tone=true;
     ofResetElapsedTimeCounter();
   }
-  m_fbo.draw(0,0);
 }
 
 void ofApp::wait()
@@ -151,10 +147,28 @@ void ofApp::timeout()
   ofLogNotice("Simon Leon") << "Timeout !";
 }
 
-void ofApp::loose()
+void ofApp::lose()
 {
-  ofLogNotice("Simon Leon") << "Loose !";
+  ofLogNotice("Simon Leon") << "Lose !";
   tone(4);
+  while(m_samplers[4].isPlaying())
+  {
+    return;
+  }
+  if (!m_player.isLoaded())
+  {
+    std::vector<std::vector<ofFile>* > colors =
+    { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
+    auto choice = colors[*m_answer_it];
+    int index = ofRandom(choice->size());
+    m_player.load((*choice)[index].path());
+    m_player.setLoopState(OF_LOOP_NONE);
+    m_player.play();
+  } else if (m_player.getIsMovieDone())
+  {
+    m_player.close();
+    reset();
+  }
 }
 
 void ofApp::win()
@@ -165,30 +179,35 @@ void ofApp::win()
 
 void ofApp::replay_sequence()
 {
-  ofLogNotice("Simon Leon") << "Replay !";
+  ofLogNotice("Simon Leon") << "Replay ! "
+                            << m_seq_it->first << " " <<  m_sequence.size() << " "
+                            << *m_answer_it << " " << m_answer.size();
 
-  m_player.update();
   if (!m_player.isLoaded() || m_player.getIsMovieDone())
   {
     // si on a déjà joué toutes les réponses
     if ( m_seq_it == m_sequence.end() )
     {
-      // mais qu'on n'a pas atteint 14
-      if(m_sequence.size() != 14)
+      // et qu'on a joué 14 séquences
+      if(m_sequence.size() == 14)
       {
-        // alors on ajoute une nouvelle séquence et on recommence
+        // alors on a gagné
+        m_player.close();
+        m_status = WIN;
+        m_new_tone = true;
+      } else {
+        // sinon on ajoute une nouvelle séquence et on recommence
+        m_player.close();
         m_sequence.push_back(random_choice());
         ofLogNotice("Simon Leon") << "choose another sequence: " << m_sequence.back().second
                                   << " size: " << m_sequence.size();
 
         m_status = PLAY;
         m_seq_it = m_sequence.begin();
+        m_answer.clear();
+        m_answer_it = m_answer.begin();
         m_new_tone=true;
         ofResetElapsedTimeCounter();
-      } else {
-        // sinon on a gagné
-        m_status = WIN;
-        m_new_tone = true;
       }
     } else {
 
@@ -202,28 +221,24 @@ void ofApp::replay_sequence()
 
       ofClear(colors[color]);
 
-      if(m_seq_it->first == *m_answer_it)
-      {
-        m_player.load(m_seq_it->second);
-        m_player.setLoopState(OF_LOOP_NONE);
-        m_player.play();
-      }
-      else
-      {
-        std::vector<std::vector<ofFile>* > colors =
-        { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
-        auto choice = colors[*m_answer_it];
-        int index = ofRandom(choice->size()-1);
-        m_player.load((*choice)[index].path());
-        m_player.setLoopState(OF_LOOP_NONE);
-        m_player.play();
-      }
+      m_player.load(m_seq_it->second);
+      m_player.setLoopState(OF_LOOP_NONE);
+      m_player.play();
 
       m_seq_it++;
       m_answer_it++;
     }
   }
-  else
+}
+
+void ofApp::draw()
+{
+
+  if(m_status == PLAY)
+  {
+    m_fbo.draw(0.,0.);
+  }
+  else if(m_player.isPlaying())
   {
     float w, h;
     float window_ratio = ofGetWidth() / ofGetHeight();
@@ -239,6 +254,7 @@ void ofApp::replay_sequence()
       h = w / player_ratio;
     }
     ofClear(ofColor::black);
+    m_player.update();
     m_player.draw(0,0,w,h);
   }
 }
@@ -271,6 +287,8 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
     }
     case REPLAY:
     case PLAY:
+    case LOSE:
+    case WIN:
       break;
     default:
       reset();
@@ -281,6 +299,7 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
 void ofApp::record_key(int key)
 {
   m_answer.push_back(key);
+  m_answer_it = --m_answer.end();
 
   if(key == m_seq_it->first)
   {
@@ -298,7 +317,7 @@ void ofApp::record_key(int key)
   }
   else
   {
-    m_status = LOOSE;
+    m_status = LOSE;
     m_new_tone = true;
   }
 }

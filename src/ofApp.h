@@ -21,7 +21,7 @@ class ofApp : public ofBaseApp
     void credits();
     void timeout();
     void reset();
-    void loose();
+    void lose();
     void win();
 
     std::vector<ofFile> shuffle_file_list(std::string path);
@@ -49,7 +49,7 @@ class ofApp : public ofBaseApp
     std::vector<int> m_answer;
     std::vector<int>::iterator m_answer_it;
 
-    enum GameStatus { WAIT, PLAY, REPLAY, LOOSE, WIN, GAME_OVER, TIME_OUT };
+    enum GameStatus { WAIT, PLAY, REPLAY, LOSE, WIN, GAME_OVER, TIME_OUT };
     GameStatus m_status;
 
     ofFbo m_fbo;

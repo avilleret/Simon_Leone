@@ -42,6 +42,10 @@ void ofApp::setup()
   ofSetBackgroundColor(ofColor::black);
   m_fbo.allocate(ofGetWidth(), ofGetHeight());
 
+  m_font.load("verdana.ttf", 14, true, true);
+  m_font.setLineHeight(18.0f);
+  m_font.setLetterSpacing(1.037);
+
   reset();
 }
 
@@ -293,6 +297,24 @@ void ofApp::draw()
     ofClear(ofColor::black);
     m_player.update();
     m_player.draw(0,0,w,h);
+  }
+
+  if (m_status == WAIT_PLAYER && int(ofGetElapsedTimef()*2) % 2 == 0)
+  {
+    ofPushStyle();
+    ofSetColor(ofColor(255,255,255,128));
+    std::string text = "Press a button to start";
+    ofRectangle bbox = m_font.getStringBoundingBox(text,0,0);
+    ofPoint anchor(ofGetWidth()/2-bbox.getWidth()/2, 5 + bbox.height);
+    bbox.x = anchor.x - 5.;
+    bbox.width += 10.;
+    bbox.y = anchor.y-bbox.height-5.;
+    bbox.height += 10.;
+    ofDrawRectangle(bbox);
+    ofSetColor(ofColor::red);
+    m_font.drawString("Press a button to start",
+                      anchor.x, anchor.y);
+    ofPopStyle();
   }
 }
 

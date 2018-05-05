@@ -65,6 +65,7 @@ class ofApp : public ofBaseApp
     int m_sequence_size{14};
 
     ofFbo m_fbo;
+    ofTrueTypeFont m_font;
 
     bool m_new_tone{true};
     float m_delay{1.}; // time in second between each note

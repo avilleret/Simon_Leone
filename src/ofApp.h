@@ -12,9 +12,10 @@ class ofApp : public ofBaseApp
     void keyPressed      (ofKeyEventArgs&);
 
     std::pair<int,std::string> random_choice();
-    void play_sequence();
-    void wait();
-    void replay_sequence();
+    void play_melody();
+    void wait_input();
+    void wait_player();
+    void play_movie_sequence();
     void record_key(int key);
     void tone(int c);
     void light(int c);
@@ -44,12 +45,21 @@ class ofApp : public ofBaseApp
     std::vector<ofFile> m_gagne_rouge;
     std::vector<ofFile> m_gagne_bleu;
 
+    std::vector<ofFile> m_attente;
+
     std::vector<std::pair<int,std::string>> m_sequence;
     std::vector<std::pair<int,std::string>>::iterator m_seq_it;
     std::vector<int> m_answer;
     std::vector<int>::iterator m_answer_it;
 
-    enum GameStatus { WAIT, PLAY, REPLAY, LOSE, WIN, GAME_OVER, TIME_OUT };
+    enum GameStatus { WAIT_INPUT, // wait for input
+                      PLAY_TONE, // play melody
+                      PLAY_MOVIE, // play movie sequence
+                      LOSE, WIN,
+                      GAME_OVER,
+                      TIME_OUT,
+                      WAIT_PLAYER // wait for a player
+                    };
     GameStatus m_status;
 
     int m_sequence_size{14};

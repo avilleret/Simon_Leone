@@ -21,6 +21,9 @@ void ofApp::setup()
   m_gagne_vert  = shuffle_file_list("movie/gagne-vert/");
   m_gagne_bleu  = shuffle_file_list("movie/gagne-bleu/");
 
+  // attende
+  m_attente = shuffle_file_list("movie/attente/");
+
   m_samplers.resize(6);
   m_samplers[0].load("sound/son1.mp3");
   m_samplers[1].load("sound/son2.mp3");
@@ -78,14 +81,14 @@ void ofApp::update()
 {
   switch(m_status)
   {
-    case WAIT:
-      wait();
+    case WAIT_INPUT:
+      wait_input();
       break;
-    case PLAY:
-      play_sequence();
+    case PLAY_TONE:
+      play_melody();
       break;
-    case REPLAY:
-      replay_sequence();
+    case PLAY_MOVIE:
+      play_movie_sequence();
       break;
     case TIME_OUT:
       timeout();
@@ -99,12 +102,16 @@ void ofApp::update()
     case WIN:
       win();
       break;
+    case WAIT_PLAYER:
+      wait_player();
+      break;
     default:
+      ofLogError("Simon Leone") << "Bad state !";
       ;
   }
 }
 
-void ofApp::play_sequence()
+void ofApp::play_melody()
 {
   auto time = ofGetElapsedTimef();
 
@@ -115,7 +122,7 @@ void ofApp::play_sequence()
     if (m_seq_it == m_sequence.end())
     {
       m_seq_it = m_sequence.begin();
-      m_status = WAIT;
+      m_status = WAIT_INPUT;
     }
     else
     {
@@ -129,7 +136,19 @@ void ofApp::play_sequence()
   }
 }
 
-void ofApp::wait()
+void ofApp::wait_player()
+{
+  if (!m_player.isLoaded() || m_player.getIsMovieDone())
+  {
+    auto file = m_attente[ofRandom(m_attente.size())].path();
+    ofLogNotice("Simon Leone") << "load new waiting file: " << file;
+    m_player.load(file);
+    m_player.setLoopState(OF_LOOP_NONE);
+    m_player.play();
+  }
+}
+
+void ofApp::wait_input()
 {
   // ofLogNotice("Simon Leone") << "wait ";
 
@@ -195,7 +214,7 @@ void ofApp::win()
   }
 }
 
-void ofApp::replay_sequence()
+void ofApp::play_movie_sequence()
 {
   ofLogNotice("Simon Leon") << "Replay ! "
                             << m_seq_it->first << " " <<  m_sequence.size() << " "
@@ -220,7 +239,7 @@ void ofApp::replay_sequence()
         ofLogNotice("Simon Leon") << "choose another sequence: " << m_sequence.back().second
                                   << " size: " << m_sequence.size();
 
-        m_status = PLAY;
+        m_status = PLAY_TONE;
         m_seq_it = m_sequence.begin();
         m_answer.clear();
         m_answer_it = m_answer.begin();
@@ -252,7 +271,7 @@ void ofApp::replay_sequence()
 void ofApp::draw()
 {
 
-  if(m_status == PLAY)
+  if(m_status == PLAY_TONE)
   {
     m_fbo.draw(0.,0.);
   }
@@ -282,7 +301,7 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
   ofLogNotice("Simon Leon") << "key pressed: " << key.key;
 
   switch (m_status) {
-    case WAIT:
+    case WAIT_INPUT:
     {
       switch(key.key)
       {
@@ -303,8 +322,13 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
       }
       break;
     }
-    case REPLAY:
-    case PLAY:
+    case WAIT_PLAYER:
+      m_status = PLAY_TONE;
+      m_player.close();
+      ofResetElapsedTimeCounter();
+      break;
+    case PLAY_MOVIE:
+    case PLAY_TONE:
     case LOSE:
     case WIN:
       break;
@@ -328,7 +352,7 @@ void ofApp::record_key(int key)
 
     if (m_seq_it == m_sequence.end())
     {
-      m_status = REPLAY;
+      m_status = PLAY_MOVIE;
       m_seq_it = m_sequence.begin();
       m_answer_it = m_answer.begin();
     }
@@ -395,7 +419,7 @@ void ofApp::reset()
 
   m_answer.clear();
   m_answer_it = m_answer.begin();
-  m_status = PLAY;
+  m_status = WAIT_PLAYER;
   ofResetElapsedTimeCounter();
   m_new_tone = true;
 }

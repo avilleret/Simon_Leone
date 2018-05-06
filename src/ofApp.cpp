@@ -1,9 +1,34 @@
 #include "ofApp.h"
 
-void ofApp::setup()
-{
-  ofSetLogLevel(OF_LOG_NOTICE);
 
+
+std::vector<ofFile> shuffle_file_list(std::string path);
+float delay{1.}; // time in second between each note
+
+enum GameStatus { WAIT_INPUT, // wait for input
+                  PLAY_TONE, // play melody
+                  PLAY_MOVIE, // play movie sequence
+                  LOSE, WIN,
+                  GAME_OVER,
+                  TIME_OUT,
+                  WAIT_PLAYER, // wait for a player
+                  START_SPLASH // player number announcement
+                };
+GameStatus status;
+
+void tone(int c);
+void light(int c);
+bool new_tone{true};
+void reset();
+
+std::vector<ofSoundPlayer> samplers;
+std::vector<Player> players;
+int current_player{};
+int sequence_size{14};
+ofFbo fbo;
+
+Player::Player(const int size)
+{
   m_rouge = shuffle_file_list("movie/rouge/");
   m_jaune = shuffle_file_list("movie/jaune/");
   m_vert  = shuffle_file_list("movie/vert/");
@@ -21,47 +46,15 @@ void ofApp::setup()
   m_gagne_vert  = shuffle_file_list("movie/gagne-vert/");
   m_gagne_bleu  = shuffle_file_list("movie/gagne-bleu/");
 
-  // attende
-  m_attente = shuffle_file_list("movie/attente/");
-
-  m_samplers.resize(6);
-  m_samplers[0].load("sound/son1.mp3");
-  m_samplers[1].load("sound/son2.mp3");
-  m_samplers[2].load("sound/son3.mp3");
-  m_samplers[3].load("sound/son4.mp3");
-  m_samplers[4].load("sound/gagne.mp3");
-  m_samplers[5].load("sound/loupe.mp3");
-
-  for (auto& sampler : m_samplers)
-  {
-    sampler.setVolume(0.75f);
-    sampler.setMultiPlay(false);
-  }
-
-  ofSetFrameRate(25);
-  ofSetBackgroundColor(ofColor::black);
-  m_fbo.allocate(ofGetWidth(), ofGetHeight());
-
-  m_font.load("verdana.ttf", 14, true, true);
-  m_font.setLineHeight(18.0f);
-  m_font.setLetterSpacing(1.037);
-
-  reset();
+  m_sequence.clear();
+  m_sequence.reserve(size);
+  m_sequence.push_back(random_choice());
+  m_seq_it = m_sequence.begin();
+  m_answer.clear();
+  m_answer_it = m_answer.begin();
 }
 
-std::vector<ofFile> ofApp::shuffle_file_list(std::string path)
-{
-  ofDirectory dir;
-
-  dir.allowExt("mp4");
-  dir.listDir(path);
-  vector<ofFile> shuffled = dir.getFiles();
-  std::random_shuffle(begin(shuffled),end(shuffled));
-
-  return std::move(shuffled);
-}
-
-std::pair<int, std::string> ofApp::random_choice()
+std::pair<int, std::string> Player::random_choice()
 {
   std::vector<std::vector<ofFile>* > colors =
     { &m_rouge, &m_jaune, &m_vert, &m_bleu };
@@ -81,18 +74,62 @@ std::pair<int, std::string> ofApp::random_choice()
   return {color, file.path()};
 }
 
+void ofApp::setup()
+{
+  ofSetLogLevel(OF_LOG_NOTICE);
+
+  // attende
+  m_attente = shuffle_file_list("movie/attente/");
+
+  samplers.resize(6);
+  samplers[0].load("sound/son1.mp3");
+  samplers[1].load("sound/son2.mp3");
+  samplers[2].load("sound/son3.mp3");
+  samplers[3].load("sound/son4.mp3");
+  samplers[4].load("sound/gagne.mp3");
+  samplers[5].load("sound/loupe.mp3");
+
+  for (auto& sampler : samplers)
+  {
+    sampler.setVolume(0.75f);
+    sampler.setMultiPlay(false);
+  }
+
+  ofSetFrameRate(25);
+  ofSetBackgroundColor(ofColor::black);
+  fbo.allocate(ofGetWidth(), ofGetHeight());
+
+  m_font.load("verdana.ttf", 14, true, true);
+  m_font.setLineHeight(18.0f);
+  m_font.setLetterSpacing(1.037);
+
+  reset();
+}
+
+std::vector<ofFile> shuffle_file_list(std::string path)
+{
+  ofDirectory dir;
+
+  dir.allowExt("mp4");
+  dir.listDir(path);
+  vector<ofFile> shuffled = dir.getFiles();
+  std::random_shuffle(begin(shuffled),end(shuffled));
+
+  return std::move(shuffled);
+}
+
 void ofApp::update()
 {
-  switch(m_status)
+  switch(status)
   {
     case WAIT_INPUT:
       wait_input();
       break;
     case PLAY_TONE:
-      play_melody();
+      players[current_player].play_melody();
       break;
     case PLAY_MOVIE:
-      play_movie_sequence();
+      players[current_player].play_movie_sequence();
       break;
     case TIME_OUT:
       timeout();
@@ -101,13 +138,16 @@ void ofApp::update()
       credits();
       break;
     case LOSE:
-      lose();
+      players[current_player].lose();
       break;
     case WIN:
-      win();
+      players[current_player].win();
       break;
     case WAIT_PLAYER:
       wait_player();
+      break;
+    case START_SPLASH:
+      start_splash();
       break;
     default:
       ofLogError("Simon Leone") << "Bad state !";
@@ -115,18 +155,27 @@ void ofApp::update()
   }
 }
 
-void ofApp::play_melody()
+void ofApp::start_splash(){
+  if(ofGetElapsedTimef() > 3.)
+  {
+    status = PLAY_TONE;
+    current_player=0;
+    ofResetElapsedTimeCounter();
+  }
+}
+
+void Player::play_melody()
 {
   auto time = ofGetElapsedTimef();
 
   ofLogNotice("Simon Leon") << "Play ! " << time;
 
-  if( time < m_delay)
+  if( time < delay)
   {
     if (m_seq_it == m_sequence.end())
     {
       m_seq_it = m_sequence.begin();
-      m_status = WAIT_INPUT;
+      status = WAIT_INPUT;
     }
     else
     {
@@ -135,7 +184,7 @@ void ofApp::play_melody()
     }
   } else {
     m_seq_it++;
-     m_new_tone=true;
+    new_tone=true;
     ofResetElapsedTimeCounter();
   }
 }
@@ -156,8 +205,8 @@ void ofApp::wait_input()
 {
   // ofLogNotice("Simon Leone") << "wait ";
 
-  if(ofGetElapsedTimef() > (m_sequence_size * m_delay) )
-    m_status = TIME_OUT;
+  if(ofGetElapsedTimef() > (sequence_size * delay) )
+    status = TIME_OUT;
 }
 
 void ofApp::credits()
@@ -170,11 +219,11 @@ void ofApp::timeout()
   ofLogNotice("Simon Leon") << "Timeout !";
 }
 
-void ofApp::lose()
+void Player::lose()
 {
   ofLogNotice("Simon Leon") << "Lose !";
   tone(4);
-  while(m_samplers[4].isPlaying())
+  while(samplers[4].isPlaying())
   {
     return;
   }
@@ -194,11 +243,11 @@ void ofApp::lose()
   }
 }
 
-void ofApp::win()
+void Player::win()
 {
   ofLogNotice("Simon Leon") << "Win !";
   tone(5);
-  while(m_samplers[5].isPlaying())
+  while(samplers[5].isPlaying())
   {
     return;
   }
@@ -218,9 +267,9 @@ void ofApp::win()
   }
 }
 
-void ofApp::play_movie_sequence()
+void Player::play_movie_sequence()
 {
-  ofLogNotice("Simon Leon") << "Replay ! "
+  ofLogNotice("Simon Leon") << "Replay ! " << current_player << " "
                             << m_seq_it->first << " " <<  m_sequence.size() << " "
                             << *m_answer_it << " " << m_answer.size();
 
@@ -230,12 +279,12 @@ void ofApp::play_movie_sequence()
     if ( m_seq_it == m_sequence.end() )
     {
       // et qu'on a joué assez de séquences
-      if(m_sequence.size() == m_sequence_size)
+      if(m_sequence.size() == sequence_size)
       {
         // alors on a gagné
         m_player.close();
-        m_status = WIN;
-        m_new_tone = true;
+        status = WIN;
+        new_tone = true;
       } else {
         // sinon on ajoute une nouvelle séquence et on recommence
         m_player.close();
@@ -243,11 +292,13 @@ void ofApp::play_movie_sequence()
         ofLogNotice("Simon Leon") << "choose another sequence: " << m_sequence.back().second
                                   << " size: " << m_sequence.size();
 
-        m_status = PLAY_TONE;
+        current_player++;
+        current_player%=players.size();
+        status = PLAY_TONE;
         m_seq_it = m_sequence.begin();
         m_answer.clear();
         m_answer_it = m_answer.begin();
-        m_new_tone=true;
+        new_tone=true;
         ofResetElapsedTimeCounter();
       }
     } else {
@@ -272,49 +323,83 @@ void ofApp::play_movie_sequence()
   }
 }
 
+void draw_video(ofVideoPlayer& p)
+{
+  float w, h;
+  float window_ratio = ofGetWidth() / ofGetHeight();
+  float player_ratio = p.getWidth() / p.getHeight();
+  if ( window_ratio > player_ratio)
+  {
+    h = ofGetHeight();
+    w = h * player_ratio;
+  }
+  else
+  {
+    w = ofGetWidth();
+    h = w / player_ratio;
+  }
+  ofClear(ofColor::black);
+  p.update();
+  p.draw(0,0,w,h);
+}
+
+void ofApp::draw_text(const std::string& text, ofPoint center)
+{
+  ofPushStyle();
+  ofSetColor(ofColor(255,255,255,128));
+  ofRectangle bbox = m_font.getStringBoundingBox(text,0,0);
+  ofPoint anchor = center + ofPoint(-bbox.getWidth()/2,bbox.height);
+  bbox.x = anchor.x - 5.;
+  bbox.width += 10.;
+  bbox.y = anchor.y-bbox.height-5.;
+  bbox.height += 10.;
+  ofDrawRectangle(bbox);
+  ofSetColor(ofColor::red);
+  m_font.drawString(text, anchor.x, anchor.y);
+  ofPopStyle();
+}
+
 void ofApp::draw()
 {
+  ofLogNotice("Simon Leone") << "current player: " << current_player;
 
-  if(m_status == PLAY_TONE)
+  if(status == PLAY_TONE)
   {
-    m_fbo.draw(0.,0.);
+    fbo.draw(0.,0.);
   }
   else if(m_player.isPlaying())
   {
-    float w, h;
-    float window_ratio = ofGetWidth() / ofGetHeight();
-    float player_ratio = m_player.getWidth() / m_player.getHeight();
-    if ( window_ratio > player_ratio)
+    draw_video(m_player);
+  } else if(!players.empty() && players[current_player].m_player.isPlaying())
+    draw_video(players[current_player].m_player);
+
+  if (status == WAIT_PLAYER)
+  {
+    if (int(ofGetElapsedTimef()*2) % 2 == 0)
     {
-      h = ofGetHeight();
-      w = h * player_ratio;
+      draw_text("Press a button to start");
+      draw_text("Green : 1 player", ofPoint(ofGetWidth()/2, 50));
+      draw_text("Blue : 2 players", ofPoint(ofGetWidth()/2, 80));
+      draw_text("Red : 3 players", ofPoint(ofGetWidth()/2, 110));
+      draw_text("Yellow : 4 players", ofPoint(ofGetWidth()/2, 140));
     }
-    else
-    {
-      w = ofGetWidth();
-      h = w / player_ratio;
-    }
-    ofClear(ofColor::black);
-    m_player.update();
-    m_player.draw(0,0,w,h);
   }
 
-  if (m_status == WAIT_PLAYER && int(ofGetElapsedTimef()*2) % 2 == 0)
+  if(status == START_SPLASH)
   {
-    ofPushStyle();
-    ofSetColor(ofColor(255,255,255,128));
-    std::string text = "Press a button to start";
-    ofRectangle bbox = m_font.getStringBoundingBox(text,0,0);
-    ofPoint anchor(ofGetWidth()/2-bbox.getWidth()/2, 5 + bbox.height);
-    bbox.x = anchor.x - 5.;
-    bbox.width += 10.;
-    bbox.y = anchor.y-bbox.height-5.;
-    bbox.height += 10.;
-    ofDrawRectangle(bbox);
-    ofSetColor(ofColor::red);
-    m_font.drawString("Press a button to start",
-                      anchor.x, anchor.y);
-    ofPopStyle();
+    ofClear(ofColor::black);
+    std::ostringstream oss;
+    oss << "Start with " << players.size() << " player";
+    if (players.size() > 1)
+       oss << "s";
+    draw_text(oss.str());
+  }
+
+  if(status == PLAY_TONE)
+  {
+    std::ostringstream oss;
+    oss << "Player " << current_player+1;
+    draw_text(oss.str());
   }
 }
 
@@ -322,7 +407,7 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
 {
   ofLogNotice("Simon Leon") << "key pressed: " << key.key;
 
-  switch (m_status) {
+  switch (status) {
     case WAIT_INPUT:
     {
       switch(key.key)
@@ -345,9 +430,39 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
       break;
     }
     case WAIT_PLAYER:
-      m_status = PLAY_TONE;
-      m_player.close();
-      ofResetElapsedTimeCounter();
+      players.clear();
+      current_player=0;
+      switch(key.key)
+      {
+        case OF_KEY_LEFT:
+          current_player=1;
+          break;
+        case OF_KEY_RIGHT:
+          current_player=2;
+          break;
+        case OF_KEY_UP:
+          current_player=3;
+          break;
+        case OF_KEY_DOWN:
+          current_player=4;
+          break;
+        default:
+          ;
+      }
+      ofLogNotice("Simon Leone") << "current player: " << current_player;
+      while(current_player>0)
+      {
+        players.emplace_back(sequence_size);
+        --current_player;
+      }
+      ofLogNotice("Simon Leone") << "player number: " << players.size();
+      if(players.size()>0)
+      {
+        status = START_SPLASH;
+        m_player.close();
+        ofResetElapsedTimeCounter();
+        current_player = 0;
+      }
       break;
     case PLAY_MOVIE:
     case PLAY_TONE:
@@ -362,51 +477,51 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
 
 void ofApp::record_key(int key)
 {
-  m_answer.push_back(key);
-  m_answer_it = --m_answer.end();
+  players[current_player].m_answer.push_back(key);
+  players[current_player].m_answer_it = players[current_player].m_answer.end() - 1;
 
-  if(key == m_seq_it->first)
+  if(key == players[current_player].m_seq_it->first)
   {
     ofResetElapsedTimeCounter();
-    m_new_tone = true;
+    new_tone = true;
     tone(key);
-    m_seq_it++;
+    players[current_player].m_seq_it++;
 
-    if (m_seq_it == m_sequence.end())
+    if (players[current_player].m_seq_it == players[current_player].m_sequence.end())
     {
-      m_status = PLAY_MOVIE;
-      m_seq_it = m_sequence.begin();
-      m_answer_it = m_answer.begin();
+      status = PLAY_MOVIE;
+      players[current_player].m_seq_it = players[current_player].m_sequence.begin();
+      players[current_player].m_answer_it = players[current_player].m_answer.begin();
     }
   }
   else
   {
-    m_status = LOSE;
-    m_new_tone = true;
+    status = LOSE;
+    new_tone = true;
   }
 }
 
-void ofApp::tone(int c)
+void tone(int c)
 {
-  if(m_new_tone)
+  if(new_tone)
   {
-    m_samplers[c].play();
-    m_new_tone=false;
+    samplers[c].play();
+    new_tone=false;
   }
 }
 
-void ofApp::light(int c)
+void light(int c)
 {
   // NOTE: c < 0 turn off the lights
 
-  m_fbo.begin();
+  fbo.begin();
   {
     ofClear(ofColor::black);
 
     ofColor color;
     ofLogVerbose("Simon Leone") << "light " << c;
 
-    if(!m_samplers[c].isPlaying())
+    if(!samplers[c].isPlaying())
       c=-1;
 
     color = ofColor::red;
@@ -429,19 +544,14 @@ void ofApp::light(int c)
     ofSetColor(color);
     ofDrawCircle(0.75*ofGetWidth(),ofGetHeight()*0.35,100.);
   }
-  m_fbo.end();
+  fbo.end();
 }
 
-void ofApp::reset()
+void reset()
 {
-  m_sequence.clear();
-  m_sequence.reserve(m_sequence_size);
-  m_sequence.push_back(random_choice());
-  m_seq_it = m_sequence.begin();
+  players.clear();
 
-  m_answer.clear();
-  m_answer_it = m_answer.begin();
-  m_status = WAIT_PLAYER;
+  status = WAIT_PLAYER;
   ofResetElapsedTimeCounter();
-  m_new_tone = true;
+  new_tone = true;
 }

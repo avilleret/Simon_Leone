@@ -217,6 +217,7 @@ void ofApp::credits()
 void ofApp::timeout()
 {
   ofLogNotice("Simon Leon") << "Timeout !";
+  status = LOSE;
 }
 
 void Player::lose()

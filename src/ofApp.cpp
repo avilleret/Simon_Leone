@@ -24,6 +24,11 @@ void reset();
 std::vector<ofSoundPlayer> samplers;
 std::vector<Player> players;
 int current_player{};
+// level 0 : 8 steps
+// level 1 : 10 steps
+// level 2 : 14 steps
+// level 3 : until death, speed increase exponentially
+int level{0};
 int sequence_size{14};
 ofFbo fbo;
 
@@ -379,10 +384,10 @@ void ofApp::draw()
     if (int(ofGetElapsedTimef()*2) % 2 == 0)
     {
       draw_text("Press a button to start");
-      draw_text("Green : 1 player", ofPoint(ofGetWidth()/2, 50));
-      draw_text("Blue : 2 players", ofPoint(ofGetWidth()/2, 80));
-      draw_text("Red : 3 players", ofPoint(ofGetWidth()/2, 110));
-      draw_text("Yellow : 4 players", ofPoint(ofGetWidth()/2, 140));
+      draw_text("Vert : trop facile", ofPoint(ofGetWidth()/2, 50));
+      draw_text("Bleu : t'es à l'aise", ofPoint(ofGetWidth()/2, 80));
+      draw_text("Jaune : fait gaffe à toi", ofPoint(ofGetWidth()/2, 110));
+      draw_text("Rouge : t'as chaud au cul", ofPoint(ofGetWidth()/2, 140));
     }
   }
 
@@ -432,23 +437,43 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
     }
     case WAIT_PLAYER:
       players.clear();
-      current_player=0;
+      current_player=1;
       switch(key.key)
       {
         case OF_KEY_LEFT:
-          current_player=1;
+          level=0;
           break;
         case OF_KEY_RIGHT:
-          current_player=2;
-          break;
-        case OF_KEY_UP:
-          current_player=3;
+          level=1;
           break;
         case OF_KEY_DOWN:
-          current_player=4;
+          level=2;
+          break;
+        case OF_KEY_UP:
+          level=3;
           break;
         default:
           ;
+      }
+      switch(level)
+      {
+        case 0:
+          sequence_size=8;
+          delay=2.;
+          break;
+        case 1:
+          sequence_size=11;
+          delay=1.5;
+          break;
+        case 2:
+          sequence_size=14;
+          delay=1.;
+          break;
+        case 3:
+          sequence_size=1000;
+          delay=0.99;
+          init_delay=delay;
+          break;
       }
       ofLogNotice("Simon Leone") << "current player: " << current_player;
       while(current_player>0)

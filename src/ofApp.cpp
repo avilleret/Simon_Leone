@@ -4,6 +4,7 @@
 
 std::vector<ofFile> shuffle_file_list(std::string path);
 float delay{1.}; // time in second between each note
+float init_delay{1.}; // initial delay
 
 enum GameStatus { WAIT_INPUT, // wait for input
                   PLAY_TONE, // play melody
@@ -210,7 +211,7 @@ void ofApp::wait_input()
 {
   // ofLogNotice("Simon Leone") << "wait ";
 
-  if(ofGetElapsedTimef() > (sequence_size * delay) )
+  if(ofGetElapsedTimef() > delay )
     status = TIME_OUT;
 }
 
@@ -494,6 +495,7 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
     case PLAY_TONE:
     case LOSE:
     case WIN:
+    case START_SPLASH:
       break;
     default:
       reset();
@@ -516,6 +518,8 @@ void ofApp::record_key(int key)
     if (players[current_player].m_seq_it == players[current_player].m_sequence.end())
     {
       status = PLAY_MOVIE;
+      if (level==3)
+        delay *= init_delay;
       players[current_player].m_seq_it = players[current_player].m_sequence.begin();
       players[current_player].m_answer_it = players[current_player].m_answer.begin();
     }

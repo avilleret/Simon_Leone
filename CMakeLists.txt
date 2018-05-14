@@ -12,11 +12,28 @@ set(SOURCES
     src/ofApp.cpp
 )
 
+if(APPLE)
+    message(STATUS "copy library dependency")
+    list(APPEND DEPENDENCIES /usr/local/opt/mpg123/lib/libmpg123.0.dylib)
+    list(APPEND DEPENDENCIES /usr/local/opt/libsndfile/lib/libsndfile.1.dylib)
+    list(APPEND DEPENDENCIES /usr/local/opt/boost/lib/libboost_system-mt.dylib)
+    list(APPEND DEPENDENCIES /usr/local/opt/boost/lib/libboost_filesystem-mt.dylib)
+
+    set_source_files_properties(${DEPENDENCIES} PROPERTIES MACOSX_PACKAGE_LOCATION Ressources )
+
+    set(MACOSX_RPATH TRUE)
+    set(CMAKE_SKIP_BUILD_RPATH FALSE)
+    set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+    set(CMAKE_INSTAL_RPATH "@loader_path/")
+
+endif()
+
 add_executable(
     ${PROJECT_NAME}
     MACOSX_BUNDLE
     ${SOURCES}
     ${OFXADDONS_SOURCES}
+    ${DEPENDENCIES}
 )
 
 target_link_libraries(
@@ -25,3 +42,19 @@ target_link_libraries(
 )
 
 ofSetTargetProperties()
+
+if(APPLE)
+  get_property(loc TARGET ${PROJECT_NAME} PROPERTY LOCATION)
+  get_property(dir TARGET ${PROJECT_NAME} PROPERTY OUTPUT_DIRECTORY)
+  message(STATUS " -----> ${loc}")
+  message(STATUS " -----> ${CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE}")
+  set(BIN_PATH "${CMAKE_CURRENT_SOURCE_DIR}/bin/${PROJECT_NAME}.app/Contents/MacOS/${PROJECT_NAME}")
+  foreach(lib ${DEPENDENCIES} )
+      get_filename_component(name ${lib} NAME)
+      message("libname: ${name}")
+      add_custom_target(${name} ALL install_name_tool -change ${lib} "@loader_path/../Ressources/${name}" ${BIN_PATH})
+      add_dependencies(${name} ${PROJECT_NAME})
+  endforeach()
+endif()
+
+

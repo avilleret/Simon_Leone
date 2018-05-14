@@ -119,7 +119,7 @@ std::vector<ofFile> shuffle_file_list(std::string path)
 {
   ofDirectory dir;
 
-  dir.allowExt("mp4");
+  // dir.allowExt("mp4");
   dir.listDir(path);
   vector<ofFile> shuffled = dir.getFiles();
   std::random_shuffle(begin(shuffled),end(shuffled));
@@ -415,8 +415,8 @@ void ofApp::draw_text(const std::string& text, ofPoint center)
   bbox.width += 10.;
   bbox.y = anchor.y-bbox.height-5.;
   bbox.height += 10.;
-  ofDrawRectangle(bbox);
-  ofSetColor(ofColor::red);
+  // ofDrawRectangle(bbox);
+  ofSetColor(ofColor::white);
   m_font.drawString(text, anchor.x, anchor.y);
   ofPopStyle();
 }

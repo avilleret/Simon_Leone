@@ -48,7 +48,7 @@ class ofApp : public ofBaseApp
     void wait_input(); // wait for user input
     void wait_player(); // wait for choosing a player number
     void record_key(int key);
-    void draw_text(const std::string& text, ofPoint center=ofPoint(ofGetWidth()/2,5));
+    void draw_text(const std::string& text, ofPoint center=ofPoint(ofGetWidth()/2,440));
 
     void credits();
     void timeout();

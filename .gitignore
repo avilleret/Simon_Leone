@@ -1,3 +1,11 @@
 *.mov
 *.mp3
+*.zip
 
+CMakeLists.txt.user
+
+*.DS_Store
+
+Simon_Leone
+
+*/*.app

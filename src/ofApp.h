@@ -54,7 +54,10 @@ class ofApp : public ofBaseApp
     void timeout();
     void start_splash();
 
-    std::vector<ofFile> m_attente;
+    std::vector<ofFile> m_wait;
+    std::vector<ofFile> m_credits;
+    std::vector<ofFile> m_splash;
+
 
     ofVideoPlayer m_player;
 

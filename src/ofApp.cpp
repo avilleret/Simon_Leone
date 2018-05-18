@@ -229,6 +229,11 @@ void Player::play_melody()
     {
       tone(m_seq_it->first);
       light(m_seq_it->first);
+      if ( m_seq_it == m_sequence.end() - 1
+           && !samplers[m_seq_it->first].isPlaying())
+      {
+        m_seq_it++;
+      }
     }
   } else {
     m_seq_it++;

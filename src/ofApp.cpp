@@ -284,17 +284,16 @@ void ofApp::credits()
 void ofApp::timeout()
 {
   ofLogVerbose("Simon Leone") << "Timeout !";
+  new_tone = true;
+  tone(5);
+  while(samplers[5].isPlaying())
+  {;}
   status = LOSE;
 }
 
 void Player::lose()
 {
   ofLogVerbose("Simon Leone") << "Lose !";
-  tone(4);
-  while(samplers[4].isPlaying())
-  {
-    return;
-  }
   if (!m_player.isLoaded())
   {
     std::vector<std::vector<ofFile>* > colors =
@@ -574,13 +573,25 @@ void ofApp::record_key(int key)
   players[current_player].m_answer.push_back(key);
   players[current_player].m_answer_it = players[current_player].m_answer.end() - 1;
 
-  ofResetElapsedTimeCounter();
+
   new_tone = true;
-  tone(key);
-  players[current_player].m_seq_it++;
+  int sample = key;
+  if(*players[current_player].m_answer_it != players[current_player].m_seq_it->first)
+  {
+    players[current_player].m_seq_it = players[current_player].m_sequence.end();
+    sample = 5;
+  } else {
+    players[current_player].m_seq_it++;
+  }
+
+  tone(sample);
+
+  ofResetElapsedTimeCounter();
 
   if (players[current_player].m_seq_it == players[current_player].m_sequence.end())
   {
+    while(samplers[sample].isPlaying())
+    {}
     status = PLAY_MOVIE;
     if (level==3)
       delay *= init_delay;

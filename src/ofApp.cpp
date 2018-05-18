@@ -223,6 +223,7 @@ void Player::play_melody()
     {
       m_seq_it = m_sequence.begin();
       status = WAIT_INPUT;
+      ofResetElapsedTimeCounter();
     }
     else
     {
@@ -604,6 +605,8 @@ void tone(int c)
 {
   if(new_tone)
   {
+    for(auto& sampler : samplers)
+        sampler.stop();
     samplers[c].play();
     new_tone=false;
   }

@@ -90,18 +90,34 @@ void ofApp::setup()
   m_credits = shuffle_file_list("movie/credits/");
   m_splash = shuffle_file_list("movie/splash/");
 
+  std::vector<std::string> sounds = {
+      "sound/son1.mp3",
+      "sound/son2.mp3",
+      "sound/son3.mp3",
+      "sound/son4.mp3",
+      "sound/gagne.mp3",
+      "sound/loupe.mp3"
+  };
+
   samplers.resize(6);
-  samplers[0].load("sound/son1.mp3");
-  samplers[1].load("sound/son2.mp3");
-  samplers[2].load("sound/son3.mp3");
-  samplers[3].load("sound/son4.mp3");
-  samplers[4].load("sound/gagne.mp3");
-  samplers[5].load("sound/loupe.mp3");
+  int i = 0;
+  for (const auto& file : sounds)
+  {
+      try {
+        samplers[i].load(file);
+      } catch (...) {
+          ofLogError("Simon Leone") << "oups sorry, je trouve pas le son " << file;
+      }
+      i++;
+  }
 
   for (auto& sampler : samplers)
   {
-    sampler.setVolume(0.75f);
-    sampler.setMultiPlay(false);
+    if(sampler.isLoaded())
+    {
+      sampler.setVolume(0.75f);
+      sampler.setMultiPlay(false);
+    }
   }
 
   ofSetFrameRate(25);

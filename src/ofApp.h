@@ -53,6 +53,7 @@ class ofApp : public ofBaseApp
     void credits();
     void timeout();
     void start_splash();
+    void start_new_game();
 
     std::vector<ofFile> m_wait;
     std::vector<ofFile> m_credits;

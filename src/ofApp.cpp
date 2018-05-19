@@ -1,6 +1,5 @@
 #include "ofApp.h"
-
-
+#include "simon.h"
 
 std::vector<ofFile> shuffle_file_list(std::string path);
 float delay{1.}; // time in second between each note
@@ -29,10 +28,11 @@ int current_player{};
 // level 0 : 8 steps
 // level 1 : 10 steps
 // level 2 : 14 steps
-// level 3 : until death, speed increase exponentially
+// level 3 : until death, speed increase
 int level{0};
 int sequence_size{14};
 ofFbo fbo;
+ofSerial serial;
 
 Player::Player(const int size)
 {
@@ -81,9 +81,33 @@ std::pair<int, std::string> Player::random_choice()
   return {color, file.path()};
 }
 
+void setup_serial()
+{
+  vector <ofSerialDeviceInfo> list = serial.getDeviceList();
+  ofLogNotice("Serial") << "Device list:";
+  for (ofSerialDeviceInfo& d : list)
+  {
+    ofLogNotice("Serial") << "name: " << d.getDeviceName() << " id " << d.getDeviceID() << " path " << d.getDevicePath();
+  }
+
+#ifdef __APPLE__
+  const char* dev = "/dev/cu.usbmodem1D1311";
+#else
+  const char* dev = "/dev/ttyACM0";
+#endif
+  serial.setup(dev,9600);
+  serial.flush();
+  serial.writeByte(RED_OFF);
+  serial.writeByte(GREEN_OFF);
+  serial.writeByte(YELLOW_OFF);
+  serial.writeByte(BLUE_OFF);
+  serial.writeByte(TONE_OFF);
+}
+
 void ofApp::setup()
 {
   ofSetLogLevel(OF_LOG_NOTICE);
+  ofSetLogLevel("Simon Leone", OF_LOG_NOTICE);
 
   // attende
   m_wait = shuffle_file_list("movie/attente/");
@@ -128,6 +152,7 @@ void ofApp::setup()
   m_font.setLineHeight(18.0f);
   m_font.setLetterSpacing(1.037);
 
+  setup_serial();
   reset();
 }
 
@@ -215,13 +240,15 @@ void Player::play_melody()
 {
   auto time = ofGetElapsedTimef();
 
-  ofLogVerbose("Simon Leone") << "Play ! " << time;
+  ofLogVerbose("Simon Leone") << "Play Melody ! " << time;
 
   if( time < delay)
   {
     if (m_seq_it == m_sequence.end())
     {
+      ofLogVerbose("Simon Leaone") << "Wait for input";
       m_seq_it = m_sequence.begin();
+      tone(-1); // switch off LED & TONE
       status = WAIT_INPUT;
       ofResetElapsedTimeCounter();
     }
@@ -229,7 +256,8 @@ void Player::play_melody()
     {
       tone(m_seq_it->first);
       light(m_seq_it->first);
-      if ( m_seq_it == m_sequence.end() - 1
+      if ( !serial.isInitialized()
+           && m_seq_it == m_sequence.end() - 1
            && !samplers[m_seq_it->first].isPlaying())
       {
         m_seq_it++;
@@ -244,6 +272,34 @@ void Player::play_melody()
 
 void ofApp::wait_player()
 {
+  ofLogVerbose("Simon Leone") << "Wait player";
+  if(serial.isInitialized())
+  {
+    while(serial.available())
+    {
+      char b = serial.readByte();
+      level=-1;
+      switch(b)
+      {
+        case BTN_LEVEL1:
+          level=1;
+          break;
+        case BTN_LEVEL2:
+          level=2;
+          break;
+        case BTN_LEVEL3:
+          level=3;
+          break;
+        case BTN_LEVEL4:
+          level=4;
+          break;
+        default:
+          continue;
+      }
+      start_new_game();
+      return;
+    }
+  }
   if (!m_player.isLoaded() || m_player.getIsMovieDone())
   {
     auto file = m_wait[ofRandom(m_wait.size())].path();
@@ -256,10 +312,35 @@ void ofApp::wait_player()
 
 void ofApp::wait_input()
 {
-  // ofLogVerbose("Simon Leone") << "wait ";
-
   if(ofGetElapsedTimef() > delay )
     status = TIME_OUT;
+  ofLogNotice("Simon Leone") << "wait for " << ofGetElapsedTimef() << " ms" ;
+
+  if(serial.isInitialized())
+  {
+    while(serial.available()
+          && status == WAIT_INPUT)
+    {
+      char b = serial.readByte();
+      switch(b)
+      {
+        case BTN_RED:
+          record_key(0);
+          break;
+        case BTN_GREEN:
+          record_key(2);
+          break;
+        case BTN_YELLOW:
+          record_key(1);
+          break;
+        case BTN_BLUE:
+          record_key(3);
+          break;
+        default:
+          ;
+      }
+    }
+  }
 }
 
 void ofApp::credits()
@@ -428,18 +509,21 @@ void draw_video(ofVideoPlayer& p)
 
 void ofApp::draw_text(const std::string& text, ofPoint center)
 {
-  ofPushStyle();
-  ofSetColor(ofColor(255,255,255,128));
-  ofRectangle bbox = m_font.getStringBoundingBox(text,0,0);
-  ofPoint anchor = center + ofPoint(-bbox.getWidth()/2,bbox.height);
-  bbox.x = anchor.x - 5.;
-  bbox.width += 10.;
-  bbox.y = anchor.y-bbox.height-5.;
-  bbox.height += 10.;
-  // ofDrawRectangle(bbox);
-  ofSetColor(ofColor::white);
-  m_font.drawString(text, anchor.x, anchor.y);
-  ofPopStyle();
+  if(!serial.isInitialized())
+  {
+    ofPushStyle();
+    ofSetColor(ofColor(255,255,255,128));
+    ofRectangle bbox = m_font.getStringBoundingBox(text,0,0);
+    ofPoint anchor = center + ofPoint(-bbox.getWidth()/2,bbox.height);
+    bbox.x = anchor.x - 5.;
+    bbox.width += 10.;
+    bbox.y = anchor.y-bbox.height-5.;
+    bbox.height += 10.;
+    // ofDrawRectangle(bbox);
+    ofSetColor(ofColor::white);
+    m_font.drawString(text, anchor.x, anchor.y);
+    ofPopStyle();
+  }
 }
 
 void ofApp::draw()
@@ -448,7 +532,8 @@ void ofApp::draw()
 
   if(status == PLAY_TONE)
   {
-    fbo.draw(0.,0.);
+    if (!serial.isInitialized())
+      fbo.draw(0.,0.);
   }
   else if(m_player.isPlaying())
   {
@@ -487,88 +572,99 @@ void ofApp::draw()
   }
 }
 
+void ofApp::start_new_game()
+{
+  players.clear();
+  current_player=1;
+  ofLogNotice("Simon Leone") << "start new game with level " << level;
+  switch(level)
+  {
+    case 1:
+      sequence_size=8;
+      delay=2.;
+      break;
+    case 2:
+      sequence_size=11;
+      delay=1.5;
+      break;
+    case 3:
+      sequence_size=14;
+      delay=1.;
+      break;
+    case 4:
+      sequence_size=1000;
+      delay=0.99;
+      init_delay=delay;
+      break;
+    default:
+      return;
+  }
+  ofLogNotice("Simon Leone") << "current player: " << current_player;
+  while(current_player>0)
+  {
+    players.emplace_back(sequence_size);
+    --current_player;
+  }
+  ofLogNotice("Simon Leone") << "player number: " << players.size();
+  if(players.size()>0)
+  {
+    status = START_SPLASH;
+    m_player.close();
+    ofResetElapsedTimeCounter();
+    current_player = 0;
+  }
+}
+
 void ofApp::keyPressed(ofKeyEventArgs& key)
 {
   ofLogNotice("Simon Leone") << "key pressed: " << key.key;
 
   switch (status) {
     case WAIT_INPUT:
-    {
-      switch(key.key)
       {
-        case OF_KEY_LEFT:
-          record_key(2);
-          break;
-        case OF_KEY_RIGHT:
-          record_key(3);
-          break;
-        case OF_KEY_UP:
-          record_key(0);
-          break;
-        case OF_KEY_DOWN:
-          record_key(1);
-          break;
-        default:
-          return;
+        switch(key.key)
+        {
+          case OF_KEY_LEFT: // Green
+            record_key(2);
+            break;
+          case OF_KEY_RIGHT: // Bleu
+            record_key(3);
+            break;
+          case OF_KEY_UP: // Red
+            record_key(0);
+            break;
+          case OF_KEY_DOWN: // Yellow
+            record_key(1);
+            break;
+          default:
+            return;
+        }
+        break;
       }
-      break;
-    }
     case WAIT_PLAYER:
-      players.clear();
-      current_player=1;
-      switch(key.key)
       {
-        case OF_KEY_LEFT:
-          level=0;
-          break;
-        case OF_KEY_RIGHT:
-          level=1;
-          break;
-        case OF_KEY_DOWN:
-          level=2;
-          break;
-        case OF_KEY_UP:
-          level=3;
-          break;
-        default:
-          return;
-          ;
+        level=-1;
+        switch(key.key)
+        {
+          case OF_KEY_LEFT:
+            level=1;
+            break;
+          case OF_KEY_RIGHT:
+            level=2;
+            break;
+          case OF_KEY_DOWN:
+            level=3;
+            break;
+          case OF_KEY_UP:
+            level=4;
+            break;
+          default:
+            return;
+            ;
+        }
+        start_new_game();
+        break;
       }
-      switch(level)
-      {
-        case 0:
-          sequence_size=8;
-          delay=2.;
-          break;
-        case 1:
-          sequence_size=11;
-          delay=1.5;
-          break;
-        case 2:
-          sequence_size=14;
-          delay=1.;
-          break;
-        case 3:
-          sequence_size=1000;
-          delay=0.99;
-          init_delay=delay;
-          break;
-      }
-      ofLogNotice("Simon Leone") << "current player: " << current_player;
-      while(current_player>0)
-      {
-        players.emplace_back(sequence_size);
-        --current_player;
-      }
-      ofLogNotice("Simon Leone") << "player number: " << players.size();
-      if(players.size()>0)
-      {
-        status = START_SPLASH;
-        m_player.close();
-        ofResetElapsedTimeCounter();
-        current_player = 0;
-      }
-      break;
     default:
       ;
   }
@@ -590,68 +686,128 @@ void ofApp::record_key(int key)
     players[current_player].m_seq_it++;
   }
 
-  tone(sample);
+  if(!serial.isInitialized())
+    tone(sample);
 
   ofResetElapsedTimeCounter();
 
   if (players[current_player].m_seq_it == players[current_player].m_sequence.end())
   {
-    while(samplers[sample].isPlaying())
-    {}
+    if(!serial.isInitialized())
+    {
+      while(samplers[sample].isPlaying())
+      {}
+    }
     status = PLAY_MOVIE;
     if (level==3)
       delay *= init_delay;
     players[current_player].m_seq_it = players[current_player].m_sequence.begin();
     players[current_player].m_answer_it = players[current_player].m_answer.begin();
   }
+
+  if(serial.available())
+    serial.flush();
 }
 
 void tone(int c)
 {
-  if(new_tone)
+  // 0 RED, 1 GREEN, 2 YELLOW, 3 BLUE
+  if(serial.isInitialized())
   {
-    for(auto& sampler : samplers)
-        sampler.stop();
-    samplers[c].play();
-    new_tone=false;
+    switch(c)
+    {
+      case 0:
+        serial.writeByte(RED_ON);
+        serial.writeByte(RED_TONE);
+        break;
+      case 1:
+        serial.writeByte(GREEN_ON);
+        serial.writeByte(GREEN_TONE);
+        break;
+      case 2:
+        serial.writeByte(YELLOW_ON);
+        serial.writeByte(YELLOW_TONE);
+        break;
+      case 3:
+        serial.writeByte(BLUE_ON);
+        serial.writeByte(BLUE_TONE);
+        break;
+      case 4:
+        serial.writeByte(RED_OFF);
+        serial.writeByte(GREEN_OFF);
+        serial.writeByte(YELLOW_OFF);
+        serial.writeByte(BLUE_OFF);
+        serial.writeByte(WIN_TONE);
+        break;
+      case 5:
+        serial.writeByte(RED_OFF);
+        serial.writeByte(GREEN_OFF);
+        serial.writeByte(YELLOW_OFF);
+        serial.writeByte(BLUE_OFF);
+        serial.writeByte(LOSE_TONE);
+        break;
+      default:
+        serial.writeByte(RED_OFF);
+        serial.writeByte(GREEN_OFF);
+        serial.writeByte(YELLOW_OFF);
+        serial.writeByte(BLUE_OFF);
+        serial.writeByte(TONE_OFF);
+    }
+  }
+  else
+  {
+    if(new_tone)
+    {
+      for(auto& sampler : samplers)
+          sampler.stop();
+      samplers[c].play();
+      new_tone=false;
+    }
   }
 }
 
 void light(int c)
 {
   // NOTE: c < 0 turn off the lights
+  // 0 RED, 1 GREEN, 2 YELLOW, 3 BLUE
 
-  fbo.begin();
+  if(serial.isInitialized())
   {
-    ofClear(ofColor::black);
 
-    ofColor color;
-    ofLogVerbose("Simon Leone") << "light " << c;
+  } else {
 
-    if(!samplers[c].isPlaying())
-      c=-1;
+    fbo.begin();
+    {
+      ofClear(ofColor::black);
 
-    color = ofColor::red;
-    color.a = c==0 ? 255 : 128;
-    ofSetColor(color);
-    ofDrawCircle(0.5*ofGetWidth(),ofGetHeight()*0.10,100.);
+      ofColor color;
+      ofLogVerbose("Simon Leone") << "light " << c;
 
-    color = ofColor::yellow;
-    color.a = c==1 ? 255 : 128;
-    ofSetColor(color);
-    ofDrawCircle(0.5*ofGetWidth(),ofGetHeight()*0.6,100.);
+      if(!samplers[c].isPlaying())
+        c=-1;
 
-    color = ofColor::green;
-    color.a = c==2 ? 255 : 128;
-    ofSetColor(color);
-    ofDrawCircle(0.25*ofGetWidth(),ofGetHeight()*0.35,100.);
+      color = ofColor::red;
+      color.a = c==0 ? 255 : 128;
+      ofSetColor(color);
+      ofDrawCircle(0.5*ofGetWidth(),ofGetHeight()*0.10,100.);
 
-    color = ofColor::blue;
-    color.a = c==3 ? 255 : 128;
-    ofSetColor(color);
-    ofDrawCircle(0.75*ofGetWidth(),ofGetHeight()*0.35,100.);
+      color = ofColor::yellow;
+      color.a = c==1 ? 255 : 128;
+      ofSetColor(color);
+      ofDrawCircle(0.5*ofGetWidth(),ofGetHeight()*0.6,100.);
+
+      color = ofColor::green;
+      color.a = c==2 ? 255 : 128;
+      ofSetColor(color);
+      ofDrawCircle(0.25*ofGetWidth(),ofGetHeight()*0.35,100.);
+
+      color = ofColor::blue;
+      color.a = c==3 ? 255 : 128;
+      ofSetColor(color);
+      ofDrawCircle(0.75*ofGetWidth(),ofGetHeight()*0.35,100.);
+    }
+    fbo.end();
   }
-  fbo.end();
 }
 
 void reset()

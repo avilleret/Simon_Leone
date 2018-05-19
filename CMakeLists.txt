@@ -11,6 +11,7 @@ include(${OF_ROOT}/openFrameworks.cmake)
 set(SOURCES
     src/main.cpp
     src/ofApp.cpp
+    src/simon.h
 )
 
 if(APPLE)

@@ -6,6 +6,6 @@ CMakeLists.txt.user
 
 *.DS_Store
 
-Simon_Leone
+./Simon_Leone
 
 */*.app

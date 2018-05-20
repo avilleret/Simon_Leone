@@ -40,7 +40,11 @@ class Player {
 
     std::pair<Player::SimonColor,std::string> random_choice();
 
-    ofVideoPlayer m_player;
+    ofVideoPlayer m_playerA, m_playerB;
+    ofVideoPlayer* m_player;
+
+private:
+    ofVideoPlayer* swap_player();
 };
 
 class ofApp : public ofBaseApp

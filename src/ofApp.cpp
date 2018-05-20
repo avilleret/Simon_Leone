@@ -59,6 +59,8 @@ Player::Player(const int size)
   m_seq_it = m_sequence.begin();
   m_answer.clear();
   m_answer_it = m_answer.begin();
+
+  m_player = &m_playerA;
 }
 
 std::pair<Player::SimonColor, std::string> Player::random_choice()
@@ -72,12 +74,12 @@ std::pair<Player::SimonColor, std::string> Player::random_choice()
   auto file = shuffled->back();
   shuffled->pop_back();
 
-  while(!m_player.load(file.path()))
+  while(!m_playerA.load(file.path()))
   {
     file = shuffled->back();
     shuffled->pop_back();
   }
-  m_player.close();
+  m_playerA.close();
   return {color, file.path()};
 }
 
@@ -401,22 +403,36 @@ void ofApp::timeout()
   status = LOSE;
 }
 
+ofVideoPlayer* Player::swap_player()
+{
+  ofVideoPlayer* old = m_player;
+  if(m_player == &m_playerA)
+  {
+    m_player = &m_playerB;
+  }
+  else
+  {
+    m_player = &m_playerA;
+  }
+  return old;
+}
+
 void Player::lose()
 {
   ofLogVerbose("Simon Leone") << "Lose !";
-  if (!m_player.isLoaded())
+  if (!m_player->isLoaded())
   {
     std::vector<std::vector<ofFile>* > colors =
     { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
     auto choice = colors[m_seq_it->first];
     int index = ofRandom(choice->size());
-    m_player.load((*choice)[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
+    m_player->load((*choice)[index].path());
+    m_player->setLoopState(OF_LOOP_NONE);
+    m_player->play();
   }
-  else if (m_player.getIsMovieDone())
+  else if (m_player->getIsMovieDone())
   {
-    m_player.close();
+    m_player->close();
     status=CREDITS;
   }
 }
@@ -429,18 +445,18 @@ void Player::win()
   {
     return;
   }
-  if (!m_player.isLoaded())
+  if (!m_player->isLoaded())
   {
     std::vector<std::vector<ofFile>* > colors =
     { &m_gagne_rouge, &m_gagne_jaune, &m_gagne_vert, &m_gagne_bleu };
     auto choice = colors[m_sequence.back().first];
     int index = ofRandom(choice->size());
-    m_player.load((*choice)[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
-  } else if (m_player.getIsMovieDone())
+    m_player->load((*choice)[index].path());
+    m_player->setLoopState(OF_LOOP_NONE);
+    m_player->play();
+  } else if (m_player->getIsMovieDone())
   {
-    m_player.close();
+    m_player->close();
     reset();
   }
 }
@@ -451,7 +467,7 @@ void Player::play_movie_sequence()
                             << m_seq_it->first << " " <<  m_sequence.size() << " "
                             << *m_answer_it << " " << m_answer.size();
 
-  if (!m_player.isLoaded() || m_player.getIsMovieDone())
+  if (!m_player->isLoaded() || m_player->getIsMovieDone())
   {
     // si on a déjà joué toutes les réponses
     if ( m_seq_it == m_sequence.end() )
@@ -460,12 +476,12 @@ void Player::play_movie_sequence()
       if(m_sequence.size() == sequence_size)
       {
         // alors on a gagné
-        m_player.close();
+        m_player->close();
         status = WIN;
         new_tone = true;
       } else {
         // sinon on ajoute une nouvelle séquence et on recommence
-        m_player.close();
+        m_player->close();
         m_sequence.push_back(random_choice());
         ofLogNotice("Simon Leone") << "choose another sequence: " << m_sequence.back().second
                                   << " size: " << m_sequence.size();
@@ -493,16 +509,16 @@ void Player::play_movie_sequence()
       {
         ofClear(colors[color]);
 
-        m_player.load(m_seq_it->second);
-        m_player.setLoopState(OF_LOOP_NONE);
-        m_player.play();
+        m_player->load(m_seq_it->second);
+        m_player->setLoopState(OF_LOOP_NONE);
+        m_player->play();
 
         m_seq_it++;
         m_answer_it++;
       }
       else
       {
-        m_player.close();
+        m_player->close();
         status = LOSE;
         new_tone = true;
       }
@@ -561,8 +577,8 @@ void ofApp::draw()
   else if(m_player.isPlaying())
   {
     draw_video(m_player);
-  } else if(!players.empty() && players[current_player].m_player.isPlaying())
-    draw_video(players[current_player].m_player);
+  } else if(!players.empty() && players[current_player].m_player->isPlaying())
+    draw_video(*players[current_player].m_player);
 
   if (status == WAIT_PLAYER)
   {

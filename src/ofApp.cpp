@@ -61,12 +61,12 @@ Player::Player(const int size)
   m_answer_it = m_answer.begin();
 }
 
-std::pair<int, std::string> Player::random_choice()
+std::pair<Player::SimonColor, std::string> Player::random_choice()
 {
   std::vector<std::vector<ofFile>* > colors =
     { &m_rouge, &m_jaune, &m_vert, &m_bleu };
 
-  int color = ofRandom(4);
+  SimonColor color = static_cast<SimonColor>(ofRandom(4));
   auto shuffled = colors[color];
 
   auto file = shuffled->back();
@@ -81,6 +81,16 @@ std::pair<int, std::string> Player::random_choice()
   return {color, file.path()};
 }
 
+void reset_serial()
+{
+  serial.flush();
+  serial.writeByte(RED_OFF);
+  serial.writeByte(GREEN_OFF);
+  serial.writeByte(YELLOW_OFF);
+  serial.writeByte(BLUE_OFF);
+  serial.writeByte(TONE_OFF);
+}
+
 void setup_serial()
 {
   vector <ofSerialDeviceInfo> list = serial.getDeviceList();
@@ -91,17 +101,12 @@ void setup_serial()
   }
 
 #ifdef __APPLE__
-  const char* dev = "/dev/cu.usbmodem1D1311";
+  const char* dev = "/dev/tty.usbmodem1431";
 #else
   const char* dev = "/dev/ttyACM0";
 #endif
-  serial.setup(dev,9600);
-  serial.flush();
-  serial.writeByte(RED_OFF);
-  serial.writeByte(GREEN_OFF);
-  serial.writeByte(YELLOW_OFF);
-  serial.writeByte(BLUE_OFF);
-  serial.writeByte(TONE_OFF);
+  serial.setup(dev,115200);
+  reset_serial();
 }
 
 void ofApp::setup()
@@ -238,35 +243,54 @@ void ofApp::start_splash(){
 
 void Player::play_melody()
 {
-  auto time = ofGetElapsedTimef();
-
   ofLogVerbose("Simon Leone") << "Play Melody ! " << time;
 
-  if( time < delay)
+  if (serial.isInitialized())
   {
-    if (m_seq_it == m_sequence.end())
+    m_seq_it = m_sequence.begin();
+    while ( m_seq_it != m_sequence.end() )
     {
-      ofLogVerbose("Simon Leaone") << "Wait for input";
-      m_seq_it = m_sequence.begin();
-      tone(-1); // switch off LED & TONE
-      status = WAIT_INPUT;
+      ofSleepMillis(1000.*delay*0.1);
+      tone(m_seq_it->first);
+      ofSleepMillis(1000.*delay*0.9);
+      tone(-1);
+      m_seq_it++;
+    }
+    m_seq_it = m_sequence.begin();
+    status = WAIT_INPUT;
+    ofResetElapsedTimeCounter();
+    if(serial.isInitialized())
+      serial.flush(); // drop everything received dureing movie playback
+  }
+  else
+  {
+    auto time = ofGetElapsedTimef();
+
+    if( time < delay)
+    {
+      if (m_seq_it == m_sequence.end())
+      {
+        ofLogVerbose("Simon Leaone") << "Wait for input";
+        m_seq_it = m_sequence.begin();
+        tone(-1); // switch off LED & TONE
+        status = WAIT_INPUT;
+        ofResetElapsedTimeCounter();
+      }
+      else
+      {
+        tone(m_seq_it->first);
+        light(m_seq_it->first);
+        if ( m_seq_it == m_sequence.end() - 1
+             && !samplers[m_seq_it->first].isPlaying())
+        {
+          m_seq_it++;
+        }
+      }
+    } else {
+      m_seq_it++;
+      new_tone=true;
       ofResetElapsedTimeCounter();
     }
-    else
-    {
-      tone(m_seq_it->first);
-      light(m_seq_it->first);
-      if ( !serial.isInitialized()
-           && m_seq_it == m_sequence.end() - 1
-           && !samplers[m_seq_it->first].isPlaying())
-      {
-        m_seq_it++;
-      }
-    }
-  } else {
-    m_seq_it++;
-    new_tone=true;
-    ofResetElapsedTimeCounter();
   }
 }
 
@@ -314,7 +338,6 @@ void ofApp::wait_input()
 {
   if(ofGetElapsedTimef() > delay )
     status = TIME_OUT;
-  ofLogNotice("Simon Leone") << "wait for " << ofGetElapsedTimef() << " ms" ;
 
   if(serial.isInitialized())
   {
@@ -325,16 +348,16 @@ void ofApp::wait_input()
       switch(b)
       {
         case BTN_RED:
-          record_key(0);
+          record_key(Player::SimonColor::RED);
           break;
         case BTN_GREEN:
-          record_key(2);
+          record_key(Player::SimonColor::GREEN);
           break;
         case BTN_YELLOW:
-          record_key(1);
+          record_key(Player::SimonColor::YELLOW);
           break;
         case BTN_BLUE:
-          record_key(3);
+          record_key(Player::SimonColor::BLUE);
           break;
         default:
           ;
@@ -625,16 +648,16 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
         switch(key.key)
         {
           case OF_KEY_LEFT: // Green
-            record_key(2);
+            record_key(Player::SimonColor::GREEN);
             break;
           case OF_KEY_RIGHT: // Bleu
-            record_key(3);
+            record_key(Player::SimonColor::BLUE);
             break;
           case OF_KEY_UP: // Red
-            record_key(0);
+            record_key(Player::SimonColor::RED);
             break;
           case OF_KEY_DOWN: // Yellow
-            record_key(1);
+            record_key(Player::SimonColor::YELLOW);
             break;
           default:
             return;
@@ -670,11 +693,10 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
   }
 }
 
-void ofApp::record_key(int key)
+void ofApp::record_key(Player::SimonColor key)
 {
   players[current_player].m_answer.push_back(key);
   players[current_player].m_answer_it = players[current_player].m_answer.end() - 1;
-
 
   new_tone = true;
   int sample = key;
@@ -682,12 +704,20 @@ void ofApp::record_key(int key)
   {
     players[current_player].m_seq_it = players[current_player].m_sequence.end();
     sample = 5;
+
+    if(serial.isInitialized())
+    {
+      reset_serial();
+      serial.writeByte(LOSE_TONE);
+      ofSleepMillis(1500);
+    }
   } else {
     players[current_player].m_seq_it++;
   }
 
-  if(!serial.isInitialized())
-    tone(sample);
+  if(!serial.isInitialized()) // when Simon Pocket is connected,
+    tone(sample);             // pressing button makes sound directly
+
 
   ofResetElapsedTimeCounter();
 
@@ -717,18 +747,30 @@ void tone(int c)
     switch(c)
     {
       case 0:
+        serial.writeByte(GREEN_OFF);
+        serial.writeByte(YELLOW_OFF);
+        serial.writeByte(BLUE_OFF);
         serial.writeByte(RED_ON);
         serial.writeByte(RED_TONE);
         break;
       case 1:
+        serial.writeByte(RED_OFF);
+        serial.writeByte(YELLOW_OFF);
+        serial.writeByte(BLUE_OFF);
         serial.writeByte(GREEN_ON);
         serial.writeByte(GREEN_TONE);
         break;
       case 2:
+        serial.writeByte(RED_OFF);
+        serial.writeByte(GREEN_OFF);
+        serial.writeByte(BLUE_OFF);
         serial.writeByte(YELLOW_ON);
         serial.writeByte(YELLOW_TONE);
         break;
       case 3:
+        serial.writeByte(RED_OFF);
+        serial.writeByte(GREEN_OFF);
+        serial.writeByte(YELLOW_OFF);
         serial.writeByte(BLUE_ON);
         serial.writeByte(BLUE_TONE);
         break;
@@ -817,4 +859,5 @@ void reset()
   status = WAIT_PLAYER;
   ofResetElapsedTimeCounter();
   new_tone = true;
+  reset_serial();
 }

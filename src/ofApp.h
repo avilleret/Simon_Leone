@@ -11,10 +11,17 @@ class Player {
     void lose();
     void win();
 
-    std::vector<std::pair<int,std::string>> m_sequence{};
-    std::vector<std::pair<int,std::string>>::iterator m_seq_it{};
-    std::vector<int> m_answer{};
-    std::vector<int>::iterator m_answer_it{};
+    enum SimonColor {
+      RED = 0,
+      GREEN,
+      YELLOW,
+      BLUE
+    };
+
+    std::vector<std::pair<Player::SimonColor,std::string>> m_sequence{};
+    std::vector<std::pair<Player::SimonColor,std::string>>::iterator m_seq_it{};
+    std::vector<Player::SimonColor> m_answer{};
+    std::vector<Player::SimonColor>::iterator m_answer_it{};
 
     std::vector<ofFile> m_vert;
     std::vector<ofFile> m_jaune;
@@ -31,7 +38,7 @@ class Player {
     std::vector<ofFile> m_gagne_rouge;
     std::vector<ofFile> m_gagne_bleu;
 
-    std::pair<int,std::string> random_choice();
+    std::pair<Player::SimonColor,std::string> random_choice();
 
     ofVideoPlayer m_player;
 };
@@ -43,11 +50,11 @@ class ofApp : public ofBaseApp
     void update ();
     void draw   ();
 
-    void keyPressed      (ofKeyEventArgs&);
+    void keyPressed(ofKeyEventArgs&);
 
     void wait_input(); // wait for user input
     void wait_player(); // wait for choosing a player number
-    void record_key(int key);
+    void record_key(Player::SimonColor key);
     void draw_text(const std::string& text, ofPoint center=ofPoint(ofGetWidth()/2,440));
 
     void credits();

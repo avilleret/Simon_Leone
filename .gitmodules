@@ -1,0 +1,6 @@
+[submodule "ofxSerial"]
+	path = ofxSerial
+	url = https://github.com/bakercp/ofxSerial.git
+[submodule "ofxIO"]
+	path = ofxIO
+	url = https://github.com/avilleret/ofxIO.git 

@@ -2,6 +2,8 @@
 
 #include "ofMain.h"
 #include "ofxXmlSettings.h"
+#include "ofxSerial.h"#include "ofxSerial.h"
+
 
 class Player {
   public:
@@ -67,9 +69,12 @@ class ofApp : public ofBaseApp
     void start_splash();
     void start_new_game();
 
+    void reset();
+
     std::vector<ofFile> m_wait;
     std::vector<ofFile> m_credits;
     std::vector<ofFile> m_splash;
+#include "ofxSerial.h"
 
     ofVideoPlayer m_playerA, m_playerB;
     ofVideoPlayer* m_player{&m_playerA};
@@ -84,11 +89,11 @@ private:
     };
 
     void setup_serial();
+    void reset_serial();
     void load_settings();
 
     ofTrueTypeFont m_font;
     ofxXmlSettings m_xml;
-    std::string m_serial_device;
+    std::string m_serial_device_string;
     Level m_levels[4];
-
 };

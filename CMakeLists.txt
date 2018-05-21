@@ -7,6 +7,7 @@ INCLUDE_DIRECTORIES("/usr/include/gstreamer-1.0")
 include(${OF_ROOT}/openFrameworks.cmake)
 
 ofxaddon(ofxXmlSettings)
+ofxaddon(ofxSerial)
 
 set(SOURCES
     src/main.cpp

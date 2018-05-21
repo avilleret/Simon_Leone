@@ -32,7 +32,7 @@ int current_player{};
 int level{0};
 int sequence_size{14};
 ofFbo fbo;
-ofSerial serial;
+ofx::IO::SerialDevice m_serial_device;
 
 Player::Player(const int size)
 {
@@ -86,29 +86,31 @@ std::pair<Player::SimonColor, std::string> Player::random_choice()
   return {color, file.path()};
 }
 
-void reset_serial()
+void ofApp::reset_serial()
 {
-  if(serial.isInitialized())
+  if(m_serial_device.isOpen())
   {
-    serial.flush();
-    serial.writeByte(RED_OFF);
-    serial.writeByte(GREEN_OFF);
-    serial.writeByte(YELLOW_OFF);
-    serial.writeByte(BLUE_OFF);
-    serial.writeByte(TONE_OFF);
+    m_serial_device.flush();
+    m_serial_device.writeByte(RED_OFF);
+    m_serial_device.writeByte(GREEN_OFF);
+    m_serial_device.writeByte(YELLOW_OFF);
+    m_serial_device.writeByte(BLUE_OFF);
+    m_serial_device.writeByte(TONE_OFF);
   }
 }
 
 void ofApp::setup_serial()
 {
-  vector <ofSerialDeviceInfo> list = serial.getDeviceList();
-  ofLogNotice("Serial") << "Device list:";
-  for (ofSerialDeviceInfo& d : list)
+  std::vector<ofx::IO::SerialDeviceInfo> devicesInfo = ofx::IO::SerialDeviceUtils::listDevices();
+
+  ofLogNotice("ofApp::setup") << "Connected Devices: ";
+
+  for (std::size_t i = 0; i < devicesInfo.size(); ++i)
   {
-    ofLogNotice("Serial") << "name: " << d.getDeviceName() << " id " << d.getDeviceID() << " path " << d.getDevicePath();
+      ofLogNotice("ofApp::setup") << "\t" << devicesInfo[i];
   }
 
-  serial.setup(m_serial_device,9600);
+  m_serial_device.setup(m_serial_device_string,115200);
   reset_serial();
 }
 
@@ -116,9 +118,9 @@ void ofApp::load_settings()
 {
 
 #ifdef __APPLE__
-  m_serial_device = "/dev/tty.usbmodem1431";
+  m_serial_device_string = "/dev/tty.usbmodem1431";
 #else
-  m_serial_device = "/dev/ttyACM0";
+  m_serial_device_string = "/dev/ttyACM0";
 #endif
 
   m_levels[0].steps = 8;
@@ -137,7 +139,7 @@ void ofApp::load_settings()
   {
 
     if(m_xml.pushTag("SerialDevice")) {
-      m_serial_device = m_xml.getValue("dev",m_serial_device);
+      m_serial_device_string = m_xml.getValue("dev",m_serial_device_string);
       m_xml.popTag();
     }
 
@@ -153,7 +155,7 @@ void ofApp::load_settings()
     }
   } else {
     m_xml.addTag("SerialDevice");
-    m_xml.addValue("dev",m_serial_device);
+    m_xml.addValue("dev",m_serial_device_string);
 
     for (int i = 0; i<levelstr.size(); i++)
     {
@@ -259,6 +261,7 @@ void ofApp::update()
       break;
     case WIN:
       players[current_player].win();
+      reset();
       break;
     case WAIT_PLAYER:
       wait_player();
@@ -308,9 +311,9 @@ void Player::play_melody()
 {
   ofLogVerbose("Simon Leone") << "Play Melody ! " << time;
 
-  if (serial.isInitialized())
+  if (m_serial_device.isOpen())
   {
-    serial.flush(); // drop everything received during movie playback
+    m_serial_device.flush(); // drop everything received during movie playback
     m_seq_it = m_sequence.begin();
     while ( m_seq_it != m_sequence.end() )
     {
@@ -359,11 +362,12 @@ void Player::play_melody()
 void ofApp::wait_player()
 {
   ofLogVerbose("Simon Leone") << "Wait player";
-  if(serial.isInitialized())
+  if(m_serial_device.isOpen())
   {
-    while(serial.available())
+    while(m_serial_device.available())
     {
-      char b = serial.readByte();
+      uint8_t b=0;
+      m_serial_device.readByte(b);
       level=-1;
       switch(b)
       {
@@ -403,12 +407,13 @@ void ofApp::wait_input()
   if(ofGetElapsedTimef() > delay )
     status = TIME_OUT;
 
-  if(serial.isInitialized())
+  if(m_serial_device.isOpen())
   {
-    while(serial.available()
+    while(m_serial_device.available()
           && status == WAIT_INPUT)
     {
-      char b = serial.readByte();
+      uint8_t b;
+      m_serial_device.readByte(b);
       ofLogNotice("Simon Leone") << "received code: " << int(b);
       switch(b)
       {
@@ -462,9 +467,9 @@ void ofApp::credits()
 void ofApp::timeout()
 {
   ofLogNotice("Simon Leone") << "Timeout !";
-  if(serial.isInitialized())
+  if(m_serial_device.isOpen())
   {
-    serial.writeByte(LOSE_TONE);
+    m_serial_device.writeByte(LOSE_TONE);
     ofSleepMillis(1500);
   } else {
     new_tone = true;
@@ -540,7 +545,6 @@ void Player::win()
   } else if (m_player->getIsMovieDone())
   {
     m_player->close();
-    reset();
   }
 }
 
@@ -662,7 +666,7 @@ void draw_video(ofVideoPlayer& p)
 
 void ofApp::draw_text(const std::string& text, ofPoint center)
 {
-  if(!serial.isInitialized())
+  if(!m_serial_device.isOpen())
   {
     ofPushStyle();
     ofSetColor(ofColor(255,255,255,128));
@@ -685,7 +689,7 @@ void ofApp::draw()
 
   if(status == PLAY_TONE)
   {
-    if (!serial.isInitialized())
+    if (!m_serial_device.isOpen())
       fbo.draw(0.,0.);
   }
   else if(m_player->isPlaying())
@@ -823,10 +827,10 @@ void ofApp::record_key(Player::SimonColor key)
     players[current_player].m_seq_it = players[current_player].m_sequence.end();
     sample = 5;
 
-    if(serial.isInitialized())
+    if(m_serial_device.isOpen())
     {
       reset_serial();
-      serial.writeByte(LOSE_TONE);
+      m_serial_device.writeByte(LOSE_TONE);
       ofSleepMillis(1500);
     }
   } else {
@@ -834,10 +838,10 @@ void ofApp::record_key(Player::SimonColor key)
     if(players[current_player].m_seq_it == players[current_player].m_sequence.end()
        && players[current_player].m_sequence.size() == sequence_size )
     {
-      if(serial.isInitialized())
+      if(m_serial_device.isOpen())
       {
         reset_serial();
-        serial.writeByte(WIN_TONE);
+        m_serial_device.writeByte(WIN_TONE);
         ofSleepMillis(1500);
       } else {
         tone(4);
@@ -845,12 +849,12 @@ void ofApp::record_key(Player::SimonColor key)
     }
   }
 
-  if(!serial.isInitialized()) // when Simon Pocket is connected,
+  if(!m_serial_device.isOpen()) // when Simon Pocket is connected,
     tone(sample);             // pressing button makes sound directly
 
   if (players[current_player].m_seq_it == players[current_player].m_sequence.end())
   {
-    if(!serial.isInitialized())
+    if(!m_serial_device.isOpen())
     {
       while(samplers[sample].isPlaying())
       {}
@@ -869,58 +873,58 @@ void ofApp::record_key(Player::SimonColor key)
 void tone(int c)
 {
   // 0 RED, 1 GREEN, 2 YELLOW, 3 BLUE
-  if(serial.isInitialized())
+  if(m_serial_device.isOpen())
   {
     switch(c)
     {
       case 0:
-        serial.writeByte(GREEN_OFF);
-        serial.writeByte(YELLOW_OFF);
-        serial.writeByte(BLUE_OFF);
-        serial.writeByte(RED_ON);
-        serial.writeByte(RED_TONE);
+        m_serial_device.writeByte(GREEN_OFF);
+        m_serial_device.writeByte(YELLOW_OFF);
+        m_serial_device.writeByte(BLUE_OFF);
+        m_serial_device.writeByte(RED_ON);
+        m_serial_device.writeByte(RED_TONE);
         break;
       case 1:
-        serial.writeByte(RED_OFF);
-        serial.writeByte(YELLOW_OFF);
-        serial.writeByte(BLUE_OFF);
-        serial.writeByte(GREEN_ON);
-        serial.writeByte(GREEN_TONE);
+        m_serial_device.writeByte(RED_OFF);
+        m_serial_device.writeByte(YELLOW_OFF);
+        m_serial_device.writeByte(BLUE_OFF);
+        m_serial_device.writeByte(GREEN_ON);
+        m_serial_device.writeByte(GREEN_TONE);
         break;
       case 2:
-        serial.writeByte(RED_OFF);
-        serial.writeByte(GREEN_OFF);
-        serial.writeByte(BLUE_OFF);
-        serial.writeByte(YELLOW_ON);
-        serial.writeByte(YELLOW_TONE);
+        m_serial_device.writeByte(RED_OFF);
+        m_serial_device.writeByte(GREEN_OFF);
+        m_serial_device.writeByte(BLUE_OFF);
+        m_serial_device.writeByte(YELLOW_ON);
+        m_serial_device.writeByte(YELLOW_TONE);
         break;
       case 3:
-        serial.writeByte(RED_OFF);
-        serial.writeByte(GREEN_OFF);
-        serial.writeByte(YELLOW_OFF);
-        serial.writeByte(BLUE_ON);
-        serial.writeByte(BLUE_TONE);
+        m_serial_device.writeByte(RED_OFF);
+        m_serial_device.writeByte(GREEN_OFF);
+        m_serial_device.writeByte(YELLOW_OFF);
+        m_serial_device.writeByte(BLUE_ON);
+        m_serial_device.writeByte(BLUE_TONE);
         break;
       case 4:
-        serial.writeByte(RED_OFF);
-        serial.writeByte(GREEN_OFF);
-        serial.writeByte(YELLOW_OFF);
-        serial.writeByte(BLUE_OFF);
-        serial.writeByte(WIN_TONE);
+        m_serial_device.writeByte(RED_OFF);
+        m_serial_device.writeByte(GREEN_OFF);
+        m_serial_device.writeByte(YELLOW_OFF);
+        m_serial_device.writeByte(BLUE_OFF);
+        m_serial_device.writeByte(WIN_TONE);
         break;
       case 5:
-        serial.writeByte(RED_OFF);
-        serial.writeByte(GREEN_OFF);
-        serial.writeByte(YELLOW_OFF);
-        serial.writeByte(BLUE_OFF);
-        serial.writeByte(LOSE_TONE);
+        m_serial_device.writeByte(RED_OFF);
+        m_serial_device.writeByte(GREEN_OFF);
+        m_serial_device.writeByte(YELLOW_OFF);
+        m_serial_device.writeByte(BLUE_OFF);
+        m_serial_device.writeByte(LOSE_TONE);
         break;
       default:
-        serial.writeByte(RED_OFF);
-        serial.writeByte(GREEN_OFF);
-        serial.writeByte(YELLOW_OFF);
-        serial.writeByte(BLUE_OFF);
-        serial.writeByte(TONE_OFF);
+        m_serial_device.writeByte(RED_OFF);
+        m_serial_device.writeByte(GREEN_OFF);
+        m_serial_device.writeByte(YELLOW_OFF);
+        m_serial_device.writeByte(BLUE_OFF);
+        m_serial_device.writeByte(TONE_OFF);
     }
   }
   else
@@ -942,18 +946,21 @@ void tone(int c)
   }
 }
 
-void light(int c)
+void
+
+
+light(int c)
 {
   // NOTE: c < 0 turn off the lights
   // 0 RED, 1 GREEN, 2 YELLOW, 3 BLUE
 
-  if(serial.isInitialized())
+  if(m_serial_device.isOpen())
   {
 
   } else {
 
     fbo.begin();
-    {
+    {https://github.com/avilleret/ofxIO.git
       ofClear(ofColor::black);
 
       ofColor color;
@@ -986,7 +993,7 @@ void light(int c)
   }
 }
 
-void reset()
+void ofApp::reset()
 {
   players.clear();
 

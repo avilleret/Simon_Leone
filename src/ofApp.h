@@ -2,7 +2,7 @@
 
 #include "ofMain.h"
 #include "ofxXmlSettings.h"
-#include "ofxSerial.h"#include "ofxSerial.h"
+#include "ofxSerial.h"
 
 
 class Player {

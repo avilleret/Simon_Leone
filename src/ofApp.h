@@ -71,7 +71,10 @@ class ofApp : public ofBaseApp
     std::vector<ofFile> m_splash;
 
 
-    ofVideoPlayer m_player;
+    ofVideoPlayer m_playerA, m_playerB;
+    ofVideoPlayer* m_player{&m_playerA};
+
+    ofVideoPlayer* swap_player();
 
     ofTrueTypeFont m_font;
 };

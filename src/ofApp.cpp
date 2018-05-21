@@ -220,23 +220,23 @@ void ofApp::start_splash(){
 
   if(m_splash.empty())
   {
-    m_player.close();
+    m_player->close();
     status = PLAY_TONE;
     current_player=0;
     ofResetElapsedTimeCounter();
     return;
   }
 
-  if (!m_player.isLoaded())
+  if (!m_player->isLoaded())
   {
     int index = ofRandom(m_splash.size());
-    m_player.load(m_splash[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
+    m_player->load(m_splash[index].path());
+    m_player->setLoopState(OF_LOOP_NONE);
+    m_player->play();
   }
-  else if (m_player.getIsMovieDone())
+  else if (m_player->getIsMovieDone())
   {
-    m_player.close();
+    m_player->close();
     status = PLAY_TONE;
     current_player=0;
     ofResetElapsedTimeCounter();
@@ -326,13 +326,14 @@ void ofApp::wait_player()
       return;
     }
   }
-  if (!m_player.isLoaded() || m_player.getIsMovieDone())
+  if (!m_player->isLoaded() || m_player->getIsMovieDone())
   {
+    auto other = swap_player();
     auto file = m_wait[ofRandom(m_wait.size())].path();
-    ofLogVerbose("Simon Leone") << "load new waiting file: " << file;
-    m_player.load(file);
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
+    ofLogNotice("Simon Leone") << "load new waiting file: " << file;
+    other->load(file);
+    other->setLoopState(OF_LOOP_NONE);
+    m_player->play();
   }
 }
 
@@ -374,21 +375,21 @@ void ofApp::credits()
 
   if(m_credits.empty())
   {
-    m_player.close();
+    m_player->close();
     reset();
     return;
   }
 
-  if (!m_player.isLoaded())
+  if (!m_player->isLoaded())
   {
     int index = ofRandom(m_credits.size());
-    m_player.load(m_credits[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
+    m_player->load(m_credits[index].path());
+    m_player->setLoopState(OF_LOOP_NONE);
+    m_player->play();
   }
-  else if (m_player.getIsMovieDone())
+  else if (m_player->getIsMovieDone())
   {
-    m_player.close();
+    m_player->close();
     reset();
   }
 }
@@ -401,6 +402,20 @@ void ofApp::timeout()
   while(samplers[5].isPlaying())
   {;}
   status = LOSE;
+}
+
+ofVideoPlayer* ofApp::swap_player()
+{
+  ofVideoPlayer* old = m_player;
+  if(m_player == &m_playerA)
+  {
+    m_player = &m_playerB;
+  }
+  else
+  {
+    m_player = &m_playerA;
+  }
+  return old;
 }
 
 ofVideoPlayer* Player::swap_player()
@@ -499,28 +514,74 @@ void Player::play_movie_sequence()
 
       std::vector<ofColor> colors = {
         ofColor::red,
-        ofColor::yellow,
         ofColor::green,
+        ofColor::yellow,
         ofColor::blue };
 
       int color = m_seq_it->first;
 
-      if (*m_answer_it == color)
+      if(m_seq_it == m_sequence.begin())
       {
-        ofClear(colors[color]);
+        swap_player();
+        if( *(m_answer_it) == color)
+        {
+          ofClear(colors[color]);
 
-        m_player->load(m_seq_it->second);
-        m_player->setLoopState(OF_LOOP_NONE);
+          m_player->load((m_seq_it)->second);
+          m_player->setLoopState(OF_LOOP_NONE);
+
+          m_seq_it++;
+          m_answer_it++;
+        }
+        else
+        {
+          ofLogNotice("Simon Leone") << "t'as perdu, looser ! sur la première note en plus !";
+
+          std::vector<std::vector<ofFile>* > colors =
+          { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
+          auto choice = colors[(m_seq_it)->first];
+          int index = ofRandom(choice->size());
+          m_player->load((*choice)[index].path());
+          m_player->setLoopState(OF_LOOP_NONE);
+          status = LOSE;
+        }
         m_player->play();
-
-        m_seq_it++;
-        m_answer_it++;
       }
-      else
+
+      if (m_seq_it < m_sequence.end()-1)
       {
-        m_player->close();
-        status = LOSE;
-        new_tone = true;
+        ofVideoPlayer* other = swap_player();
+
+        if( *(m_answer_it+1) == color)
+        {
+          ofClear(colors[color]);
+
+          other->load((m_seq_it+1)->second);
+          other->setLoopState(OF_LOOP_NONE);
+
+          m_seq_it++;
+          m_answer_it++;
+        }
+        else
+        {
+          ofLogNotice("Simon Leone") << "t'as perdu, looser !";
+          std::vector<std::vector<ofFile>* > colors =
+          { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
+          auto choice = colors[(m_seq_it+1)->first];
+          int index = ofRandom(choice->size());
+          other->load((*choice)[index].path());
+          other->setLoopState(OF_LOOP_NONE);
+          m_seq_it = m_sequence.end();
+        }
+        m_player->play();
+      } else if (m_sequence.size() > 1) {
+        if( *(m_answer_it) != color)
+        {
+          status = LOSE;
+        }
+        swap_player();
+        m_player->play();
+        m_seq_it++;
       }
     }
   }
@@ -574,9 +635,9 @@ void ofApp::draw()
     if (!serial.isInitialized())
       fbo.draw(0.,0.);
   }
-  else if(m_player.isPlaying())
+  else if(m_player->isPlaying())
   {
-    draw_video(m_player);
+    draw_video(*m_player);
   } else if(!players.empty() && players[current_player].m_player->isPlaying())
     draw_video(*players[current_player].m_player);
 
@@ -648,7 +709,7 @@ void ofApp::start_new_game()
   if(players.size()>0)
   {
     status = START_SPLASH;
-    m_player.close();
+    m_player->close();
     ofResetElapsedTimeCounter();
     current_player = 0;
   }
@@ -733,7 +794,6 @@ void ofApp::record_key(Player::SimonColor key)
 
   if(!serial.isInitialized()) // when Simon Pocket is connected,
     tone(sample);             // pressing button makes sound directly
-
 
   ofResetElapsedTimeCounter();
 

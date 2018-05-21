@@ -170,7 +170,7 @@ void setup() {
 
   test();
 
-  Serial.begin(115200);
+  Serial.begin(9600);
 
   while(!Serial) // Wait for serial connection (kind of 32u4 bug)
   {;}

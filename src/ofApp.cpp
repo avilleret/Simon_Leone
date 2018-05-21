@@ -108,7 +108,7 @@ void ofApp::setup_serial()
     ofLogNotice("Serial") << "name: " << d.getDeviceName() << " id " << d.getDeviceID() << " path " << d.getDevicePath();
   }
 
-  serial.setup(m_serial_device,115200);
+  serial.setup(m_serial_device,9600);
   reset_serial();
 }
 

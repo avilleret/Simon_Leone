@@ -4,6 +4,9 @@ cmake_minimum_required(VERSION 2.8)
 
 set(OF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../of/" CACHE PATH "The root directory of ofnode/of project.")
 INCLUDE_DIRECTORIES("/usr/include/gstreamer-1.0")
+INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/ofxIO/libs/snappy/src/")
+INCLUDE_DIRECTORIES("${CMAKE_CURRENT_SOURCE_DIR}/ofxIO/libs/lz4/src/")
+
 include(${OF_ROOT}/openFrameworks.cmake)
 
 ofxaddon(ofxXmlSettings)

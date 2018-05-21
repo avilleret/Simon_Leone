@@ -3,7 +3,7 @@
 
 std::vector<ofFile> shuffle_file_list(std::string path);
 float delay{1.}; // time in second between each note
-float init_delay{1.}; // initial delay
+float factor{1.}; // initial delay
 
 enum GameStatus { WAIT_INPUT, // wait for input
                   PLAY_TONE, // play melody
@@ -96,7 +96,7 @@ void reset_serial()
   serial.writeByte(TONE_OFF);
 }
 
-void setup_serial()
+void ofApp::setup_serial()
 {
   vector <ofSerialDeviceInfo> list = serial.getDeviceList();
   ofLogNotice("Serial") << "Device list:";
@@ -105,19 +105,73 @@ void setup_serial()
     ofLogNotice("Serial") << "name: " << d.getDeviceName() << " id " << d.getDeviceID() << " path " << d.getDevicePath();
   }
 
-#ifdef __APPLE__
-  const char* dev = "/dev/tty.usbmodem1431";
-#else
-  const char* dev = "/dev/ttyACM0";
-#endif
-  serial.setup(dev,115200);
+  serial.setup(m_serial_device,115200);
   reset_serial();
 }
 
+void ofApp::load_settings()
+{
+
+#ifdef __APPLE__
+  m_serial_device = "/dev/tty.usbmodem1431";
+#else
+  m_serial_device = "/dev/ttyACM0";
+#endif
+
+  m_levels[0].steps = 8;
+  m_levels[0].delay = 1.;
+  m_levels[1].steps = 11;
+  m_levels[1].delay = 0.8;
+  m_levels[2].steps = 14;
+  m_levels[2].delay = 0.6;
+  m_levels[3].steps = 4000;
+  m_levels[3].delay = 0.5;
+  m_levels[3].factor = .999;
+
+  std::vector<std::string> levelstr {"Level1", "Level2", "Level3", "Level4"};
+
+  if (m_xml.load("settings.xml"))
+  {
+
+    if(m_xml.pushTag("SerialDevice")) {
+      m_serial_device = m_xml.getValue("dev",m_serial_device);
+      m_xml.popTag();
+    }
+
+    for (int i = 0; i<levelstr.size(); i++)
+    {
+      if(m_xml.pushTag(levelstr[i]))
+      {
+        m_levels[i].steps = m_xml.getValue("steps", m_levels[i].steps);
+        m_levels[i].delay = m_xml.getValue("delay", m_levels[i].delay);
+        m_levels[i].factor = m_xml.getValue("factor", m_levels[i].factor);
+        m_xml.popTag();
+      }
+    }
+  } else {
+    m_xml.addTag("SerialDevice");
+    m_xml.addValue("dev",m_serial_device);
+
+    for (int i = 0; i<levelstr.size(); i++)
+    {
+      m_xml.addTag(levelstr[i]);
+      m_xml.pushTag(levelstr[i]);
+      m_xml.addValue("steps", m_levels[i].steps);
+      m_xml.addValue("delay", m_levels[i].delay);
+      m_xml.addValue("factor", m_levels[i].factor);
+      m_xml.popTag();
+    }
+
+    m_xml.save("settings.xml");
+  }
+
+}
 void ofApp::setup()
 {
   ofSetLogLevel(OF_LOG_NOTICE);
   ofSetLogLevel("Simon Leone", OF_LOG_NOTICE);
+
+  load_settings();
 
   // attende
   m_wait = shuffle_file_list("movie/attente/");
@@ -263,9 +317,9 @@ void Player::play_melody()
     }
     m_seq_it = m_sequence.begin();
     status = WAIT_INPUT;
-    ofResetElapsedTimeCounter();
     if(serial.isInitialized())
       serial.flush(); // drop everything received dureing movie playback
+    ofResetElapsedTimeCounter();
   }
   else
   {
@@ -663,28 +717,12 @@ void ofApp::start_new_game()
   players.clear();
   current_player=1;
   ofLogNotice("Simon Leone") << "start new game with level " << level;
-  switch(level)
-  {
-    case 1:
-      sequence_size=8;
-      delay=2.;
-      break;
-    case 2:
-      sequence_size=11;
-      delay=1.5;
-      break;
-    case 3:
-      sequence_size=14;
-      delay=1.;
-      break;
-    case 4:
-      sequence_size=1000;
-      delay=0.99;
-      init_delay=delay;
-      break;
-    default:
-      return;
-  }
+  int i = level-1;
+
+  sequence_size=m_levels[i].steps;
+  delay=m_levels[i].delay;
+  factor=m_levels[i].factor;
+
   ofLogNotice("Simon Leone") << "current player: " << current_player;
   while(current_player>0)
   {
@@ -791,8 +829,7 @@ void ofApp::record_key(Player::SimonColor key)
       {}
     }
     status = PLAY_MOVIE;
-    if (level==3)
-      delay *= init_delay;
+    delay *= factor;
     players[current_player].m_seq_it = players[current_player].m_sequence.begin();
     players[current_player].m_answer_it = players[current_player].m_answer.begin();
   }

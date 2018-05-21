@@ -6,7 +6,7 @@ set(OF_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../of/" CACHE PATH "The root directory 
 INCLUDE_DIRECTORIES("/usr/include/gstreamer-1.0")
 include(${OF_ROOT}/openFrameworks.cmake)
 
-#ofxaddon()
+ofxaddon(ofxXmlSettings)
 
 set(SOURCES
     src/main.cpp

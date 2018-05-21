@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ofMain.h"
+#include "ofxXmlSettings.h"
 
 class Player {
   public:
@@ -70,11 +71,24 @@ class ofApp : public ofBaseApp
     std::vector<ofFile> m_credits;
     std::vector<ofFile> m_splash;
 
-
     ofVideoPlayer m_playerA, m_playerB;
     ofVideoPlayer* m_player{&m_playerA};
 
     ofVideoPlayer* swap_player();
 
+private:
+    struct Level {
+      int steps; // total number of steps
+      float delay; // delay in ms between each step
+      float factor{1.}; // delay is multiply by factor each time a new step is added
+    };
+
+    void setup_serial();
+    void load_settings();
+
     ofTrueTypeFont m_font;
+    ofxXmlSettings m_xml;
+    std::string m_serial_device;
+    Level m_levels[4];
+
 };

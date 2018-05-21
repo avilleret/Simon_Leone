@@ -56,6 +56,9 @@ Player::Player(const int size)
   m_sequence.clear();
   m_sequence.reserve(size);
   m_sequence.push_back(random_choice());
+  ofLogNotice("Simon Leone") << "choose new file: " << m_sequence.back().second
+                            << " size: " << m_sequence.size();
+
   m_seq_it = m_sequence.begin();
   m_answer.clear();
   m_answer_it = m_answer.begin();
@@ -66,7 +69,7 @@ Player::Player(const int size)
 std::pair<Player::SimonColor, std::string> Player::random_choice()
 {
   std::vector<std::vector<ofFile>* > colors =
-    { &m_rouge, &m_jaune, &m_vert, &m_bleu };
+    { &m_rouge, &m_vert, &m_jaune, &m_bleu };
 
   SimonColor color = static_cast<SimonColor>(ofRandom(4));
   auto shuffled = colors[color];
@@ -438,7 +441,7 @@ void Player::lose()
   if (!m_player->isLoaded())
   {
     std::vector<std::vector<ofFile>* > colors =
-    { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
+    { &m_perdu_rouge, &m_perdu_vert, &m_perdu_jaune, &m_perdu_bleu };
     auto choice = colors[m_seq_it->first];
     int index = ofRandom(choice->size());
     m_player->load((*choice)[index].path());
@@ -463,7 +466,7 @@ void Player::win()
   if (!m_player->isLoaded())
   {
     std::vector<std::vector<ofFile>* > colors =
-    { &m_gagne_rouge, &m_gagne_jaune, &m_gagne_vert, &m_gagne_bleu };
+    { &m_gagne_rouge, &m_gagne_vert, &m_gagne_jaune, &m_gagne_bleu };
     auto choice = colors[m_sequence.back().first];
     int index = ofRandom(choice->size());
     m_player->load((*choice)[index].path());
@@ -511,8 +514,9 @@ void Player::play_movie_sequence()
         ofResetElapsedTimeCounter();
       }
     } else {
+      ofVideoPlayer* other = swap_player();
 
-      std::vector<ofColor> colors = {
+      static std::vector<ofColor> colors = {
         ofColor::red,
         ofColor::green,
         ofColor::yellow,
@@ -520,69 +524,51 @@ void Player::play_movie_sequence()
 
       int color = m_seq_it->first;
 
+      if( *(m_answer_it) != color)
+      {
+        status = LOSE;
+      }
+
       if(m_seq_it == m_sequence.begin())
       {
-        swap_player();
         if( *(m_answer_it) == color)
         {
           ofClear(colors[color]);
 
           m_player->load((m_seq_it)->second);
           m_player->setLoopState(OF_LOOP_NONE);
-
-          m_seq_it++;
-          m_answer_it++;
-        }
-        else
-        {
-          ofLogNotice("Simon Leone") << "t'as perdu, looser ! sur la première note en plus !";
-
+        } else {
           std::vector<std::vector<ofFile>* > colors =
-          { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
+          { &m_perdu_rouge, &m_perdu_vert, &m_perdu_jaune, &m_perdu_bleu };
           auto choice = colors[(m_seq_it)->first];
           int index = ofRandom(choice->size());
           m_player->load((*choice)[index].path());
           m_player->setLoopState(OF_LOOP_NONE);
-          status = LOSE;
         }
-        m_player->play();
       }
 
-      if (m_seq_it < m_sequence.end()-1)
+      if(m_sequence.size() > 1
+         && m_seq_it != m_sequence.end() - 1)
       {
-        ofVideoPlayer* other = swap_player();
-
+        color = (m_seq_it+1)->first;
         if( *(m_answer_it+1) == color)
         {
           ofClear(colors[color]);
 
           other->load((m_seq_it+1)->second);
           other->setLoopState(OF_LOOP_NONE);
-
-          m_seq_it++;
-          m_answer_it++;
-        }
-        else
-        {
-          ofLogNotice("Simon Leone") << "t'as perdu, looser !";
+        } else {
           std::vector<std::vector<ofFile>* > colors =
-          { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
+          { &m_perdu_rouge, &m_perdu_vert, &m_perdu_jaune, &m_perdu_bleu };
           auto choice = colors[(m_seq_it+1)->first];
           int index = ofRandom(choice->size());
           other->load((*choice)[index].path());
           other->setLoopState(OF_LOOP_NONE);
-          m_seq_it = m_sequence.end();
         }
-        m_player->play();
-      } else if (m_sequence.size() > 1) {
-        if( *(m_answer_it) != color)
-        {
-          status = LOSE;
-        }
-        swap_player();
-        m_player->play();
-        m_seq_it++;
       }
+      m_player->play();
+      m_seq_it++;
+      m_answer_it++;
     }
   }
 }

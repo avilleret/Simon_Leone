@@ -624,22 +624,24 @@ void Player::play_movie_sequence()
 
 void draw_video(ofVideoPlayer& p)
 {
-  float w, h;
+  float w, h, x{0.}, y{0.};
   float window_ratio = ofGetWidth() / ofGetHeight();
   float player_ratio = p.getWidth() / p.getHeight();
   if ( window_ratio > player_ratio)
   {
     h = ofGetHeight();
     w = h * player_ratio;
+    x = (ofGetWidth()-w) / 2.;
   }
   else
   {
     w = ofGetWidth();
     h = w / player_ratio;
+    y = (ofGetHeight()-h) / 2.;
   }
   ofClear(ofColor::black);
   p.update();
-  p.draw(0,0,w,h);
+  p.draw(x,y,w,h);
 }
 
 void ofApp::draw_text(const std::string& text, ofPoint center)
@@ -826,8 +828,6 @@ void ofApp::record_key(Player::SimonColor key)
   if(!serial.isInitialized()) // when Simon Pocket is connected,
     tone(sample);             // pressing button makes sound directly
 
-  ofResetElapsedTimeCounter();
-
   if (players[current_player].m_seq_it == players[current_player].m_sequence.end())
   {
     if(!serial.isInitialized())
@@ -841,8 +841,11 @@ void ofApp::record_key(Player::SimonColor key)
     players[current_player].m_answer_it = players[current_player].m_answer.begin();
   }
 
-  if(serial.available())
+  if(serial.isInitialized())
     serial.flush();
+
+  ofResetElapsedTimeCounter();
+
 }
 
 void tone(int c)
@@ -904,6 +907,13 @@ void tone(int c)
   }
   else
   {
+    if(c<0 || c > samplers.size())
+    {
+      for(auto& sampler : samplers)
+          sampler.stop();
+      return;
+    }
+
     if(new_tone)
     {
       for(auto& sampler : samplers)

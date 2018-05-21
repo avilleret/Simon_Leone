@@ -322,7 +322,7 @@ void Player::play_melody()
     m_seq_it = m_sequence.begin();
     status = WAIT_INPUT;
     if(serial.isInitialized())
-      serial.flush(); // drop everything received dureing movie playback
+      serial.flush(); // drop everything received during movie playback
     ofResetElapsedTimeCounter();
   }
   else
@@ -400,6 +400,7 @@ void ofApp::wait_player()
 
 void ofApp::wait_input()
 {
+  ofLogNotice("Simon Leone") << "wait for " << ofGetElapsedTimef() << " sec";
   if(ofGetElapsedTimef() > delay )
     status = TIME_OUT;
 
@@ -460,10 +461,16 @@ void ofApp::credits()
 void ofApp::timeout()
 {
   ofLogVerbose("Simon Leone") << "Timeout !";
-  new_tone = true;
-  tone(5);
-  while(samplers[5].isPlaying())
-  {;}
+  if(serial.isInitialized())
+  {
+    serial.writeByte(LOSE_TONE);
+    ofSleepMillis(1500);
+  } else {
+    new_tone = true;
+    tone(5);
+    while(samplers[5].isPlaying())
+    {;}
+  }
   status = LOSE;
 }
 
@@ -801,9 +808,12 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
 
 void ofApp::record_key(Player::SimonColor key)
 {
-  ofLogNotice("Simon Leone") << "record key: " << key << " compare to " << players[current_player].m_seq_it->first;
   players[current_player].m_answer.push_back(key);
   players[current_player].m_answer_it = players[current_player].m_answer.end() - 1;
+
+  ofLogNotice("Simon Leone") << "record key: " << key
+                             << " answer: " << *players[current_player].m_answer_it
+                             << " compare to " << players[current_player].m_seq_it->first;
 
   new_tone = true;
   int sample = key;

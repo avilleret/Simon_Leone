@@ -325,6 +325,7 @@ void Player::play_melody()
     }
     m_seq_it = m_sequence.begin();
     status = WAIT_INPUT;
+    m_serial_device.flush();
     ofResetElapsedTimeCounter();
   }
   else

@@ -310,6 +310,7 @@ void Player::play_melody()
 
   if (serial.isInitialized())
   {
+    serial.flush(); // drop everything received during movie playback
     m_seq_it = m_sequence.begin();
     while ( m_seq_it != m_sequence.end() )
     {
@@ -321,8 +322,6 @@ void Player::play_melody()
     }
     m_seq_it = m_sequence.begin();
     status = WAIT_INPUT;
-    if(serial.isInitialized())
-      serial.flush(); // drop everything received during movie playback
     ofResetElapsedTimeCounter();
   }
   else
@@ -460,7 +459,7 @@ void ofApp::credits()
 
 void ofApp::timeout()
 {
-  ofLogVerbose("Simon Leone") << "Timeout !";
+  ofLogNotice("Simon Leone") << "Timeout !";
   if(serial.isInitialized())
   {
     serial.writeByte(LOSE_TONE);

@@ -512,11 +512,6 @@ void Player::lose()
 void Player::win()
 {
   ofLogVerbose("Simon Leone") << "Win !";
-  tone(5);
-  while(samplers[5].isPlaying())
-  {
-    return;
-  }
   if (!m_player->isLoaded())
   {
     std::vector<std::vector<ofFile>* > colors =
@@ -814,6 +809,18 @@ void ofApp::record_key(Player::SimonColor key)
     }
   } else {
     players[current_player].m_seq_it++;
+    if(players[current_player].m_seq_it == players[current_player].m_sequence.end()
+       && players[current_player].m_sequence.size() == sequence_size )
+    {
+      if(serial.isInitialized())
+      {
+        reset_serial();
+        serial.writeByte(WIN_TONE);
+        ofSleepMillis(1500);
+      } else {
+        tone(4);
+      }
+    }
   }
 
   if(!serial.isInitialized()) // when Simon Pocket is connected,

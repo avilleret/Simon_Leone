@@ -88,12 +88,15 @@ std::pair<Player::SimonColor, std::string> Player::random_choice()
 
 void reset_serial()
 {
-  serial.flush();
-  serial.writeByte(RED_OFF);
-  serial.writeByte(GREEN_OFF);
-  serial.writeByte(YELLOW_OFF);
-  serial.writeByte(BLUE_OFF);
-  serial.writeByte(TONE_OFF);
+  if(serial.isInitialized())
+  {
+    serial.flush();
+    serial.writeByte(RED_OFF);
+    serial.writeByte(GREEN_OFF);
+    serial.writeByte(YELLOW_OFF);
+    serial.writeByte(BLUE_OFF);
+    serial.writeByte(TONE_OFF);
+  }
 }
 
 void ofApp::setup_serial()
@@ -793,6 +796,7 @@ void ofApp::keyPressed(ofKeyEventArgs& key)
 
 void ofApp::record_key(Player::SimonColor key)
 {
+  ofLogNotice("Simon Leone") << "record key: " << key << " compare to " << players[current_player].m_seq_it->first;
   players[current_player].m_answer.push_back(key);
   players[current_player].m_answer_it = players[current_player].m_answer.end() - 1;
 
@@ -837,6 +841,7 @@ void ofApp::record_key(Player::SimonColor key)
     }
     status = PLAY_MOVIE;
     delay *= factor;
+    ofLogNotice("Simon Leone") << "delay: " << delay;
     players[current_player].m_seq_it = players[current_player].m_sequence.begin();
     players[current_player].m_answer_it = players[current_player].m_answer.begin();
   }
@@ -949,15 +954,15 @@ void light(int c)
       ofSetColor(color);
       ofDrawCircle(0.5*ofGetWidth(),ofGetHeight()*0.10,100.);
 
-      color = ofColor::yellow;
+      color = ofColor::green;
       color.a = c==1 ? 255 : 128;
       ofSetColor(color);
-      ofDrawCircle(0.5*ofGetWidth(),ofGetHeight()*0.6,100.);
+      ofDrawCircle(0.25*ofGetWidth(),ofGetHeight()*0.35,100.);
 
-      color = ofColor::green;
+      color = ofColor::yellow;
       color.a = c==2 ? 255 : 128;
       ofSetColor(color);
-      ofDrawCircle(0.25*ofGetWidth(),ofGetHeight()*0.35,100.);
+      ofDrawCircle(0.5*ofGetWidth(),ofGetHeight()*0.6,100.);
 
       color = ofColor::blue;
       color.a = c==3 ? 255 : 128;

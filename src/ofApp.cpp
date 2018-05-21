@@ -290,6 +290,7 @@ void ofApp::start_splash(){
   if (!m_player->isLoaded())
   {
     int index = ofRandom(m_splash.size());
+    ofClear(ofColor::black);
     m_player->load(m_splash[index].path());
     m_player->setLoopState(OF_LOOP_NONE);
     m_player->play();
@@ -389,11 +390,11 @@ void ofApp::wait_player()
   if (!m_player->isLoaded() || m_player->getIsMovieDone())
   {
     auto other = swap_player();
+    m_player->play();
     auto file = m_wait[ofRandom(m_wait.size())].path();
     ofLogNotice("Simon Leone") << "load new waiting file: " << file;
     other->load(file);
     other->setLoopState(OF_LOOP_NONE);
-    m_player->play();
   }
 }
 
@@ -444,6 +445,7 @@ void ofApp::credits()
   if (!m_player->isLoaded())
   {
     int index = ofRandom(m_credits.size());
+    ofClear(ofColor::black);
     m_player->load(m_credits[index].path());
     m_player->setLoopState(OF_LOOP_NONE);
     m_player->play();
@@ -502,6 +504,7 @@ void Player::lose()
     { &m_perdu_rouge, &m_perdu_vert, &m_perdu_jaune, &m_perdu_bleu };
     auto choice = colors[m_seq_it->first];
     int index = ofRandom(choice->size());
+    ofClear(ofColor::black);
     m_player->load((*choice)[index].path());
     m_player->setLoopState(OF_LOOP_NONE);
     m_player->play();
@@ -522,6 +525,7 @@ void Player::win()
     { &m_gagne_rouge, &m_gagne_vert, &m_gagne_jaune, &m_gagne_bleu };
     auto choice = colors[m_sequence.back().first];
     int index = ofRandom(choice->size());
+    ofClear(ofColor::black);
     m_player->load((*choice)[index].path());
     m_player->setLoopState(OF_LOOP_NONE);
     m_player->play();
@@ -846,9 +850,6 @@ void ofApp::record_key(Player::SimonColor key)
     players[current_player].m_seq_it = players[current_player].m_sequence.begin();
     players[current_player].m_answer_it = players[current_player].m_answer.begin();
   }
-
-  if(serial.isInitialized())
-    serial.flush();
 
   ofResetElapsedTimeCounter();
 

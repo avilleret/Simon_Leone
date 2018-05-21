@@ -408,6 +408,7 @@ void ofApp::wait_input()
           && status == WAIT_INPUT)
     {
       char b = serial.readByte();
+      ofLogNotice("Simon Leone") << "received code: " << int(b);
       switch(b)
       {
         case BTN_RED:

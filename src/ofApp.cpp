@@ -1,7 +1,7 @@
 #include "ofApp.h"
 #include "simon.h"
 
-std::vector<ofFile> shuffle_file_list(std::string path);
+std::vector<ofVideoPlayer> shuffle_file_list(std::string path);
 float delay{1.}; // time in second between each note
 float init_delay{1.}; // initial delay
 
@@ -61,24 +61,18 @@ Player::Player(const int size)
   m_answer_it = m_answer.begin();
 }
 
-std::pair<Player::SimonColor, std::string> Player::random_choice()
+std::pair<Player::SimonColor, ofVideoPlayer&> Player::random_choice()
 {
-  std::vector<std::vector<ofFile>* > colors =
+  std::vector<std::vector<ofVideoPlayer>* > colors =
     { &m_rouge, &m_jaune, &m_vert, &m_bleu };
 
   SimonColor color = static_cast<SimonColor>(ofRandom(4));
   auto shuffled = colors[color];
 
-  auto file = shuffled->back();
+  auto& player = shuffled->back();
   shuffled->pop_back();
 
-  while(!m_player.load(file.path()))
-  {
-    file = shuffled->back();
-    shuffled->pop_back();
-  }
-  m_player.close();
-  return {color, file.path()};
+  return {color, player};
 }
 
 void reset_serial()
@@ -161,16 +155,27 @@ void ofApp::setup()
   reset();
 }
 
-std::vector<ofFile> shuffle_file_list(std::string path)
+std::vector<ofVideoPlayer> shuffle_file_list(std::string path)
 {
   ofDirectory dir;
 
   // dir.allowExt("mp4");
   dir.listDir(path);
   vector<ofFile> shuffled = dir.getFiles();
+  vector<ofVideoPlayer> players;
+  players.reserve(shuffled.size());
   std::random_shuffle(begin(shuffled),end(shuffled));
+  for(auto& file : shuffled)
+  {
+    ofVideoPlayer player;
+    if(player.load(file.path()))
+    {
+      player.setLoopState(OF_LOOP_NONE);
+      players.push_back(std::move(player));
+    }
+  }
 
-  return std::move(shuffled);
+  return std::move(players);
 }
 
 void ofApp::update()
@@ -218,26 +223,23 @@ void ofApp::start_splash(){
 
   if(m_splash.empty())
   {
-    m_player.close();
     status = PLAY_TONE;
     current_player=0;
     ofResetElapsedTimeCounter();
     return;
   }
 
-  if (!m_player.isLoaded())
+  if (m_player->getIsMovieDone())
   {
-    int index = ofRandom(m_splash.size());
-    m_player.load(m_splash[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
-  }
-  else if (m_player.getIsMovieDone())
-  {
-    m_player.close();
     status = PLAY_TONE;
     current_player=0;
     ofResetElapsedTimeCounter();
+  }
+  else
+  {
+    int index = ofRandom(m_splash.size());
+    m_player = &m_splash[index];
+    m_player->play();
   }
 }
 
@@ -324,13 +326,11 @@ void ofApp::wait_player()
       return;
     }
   }
-  if (!m_player.isLoaded() || m_player.getIsMovieDone())
+  if (!m_player || m_player->getIsMovieDone())
   {
-    auto file = m_wait[ofRandom(m_wait.size())].path();
-    ofLogVerbose("Simon Leone") << "load new waiting file: " << file;
-    m_player.load(file);
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
+    ofLogVerbose("Simon Leone") << "choose new waiting file";
+    m_player = &m_wait[ofRandom(m_wait.size())];
+    m_player->play();
   }
 }
 
@@ -372,21 +372,20 @@ void ofApp::credits()
 
   if(m_credits.empty())
   {
-    m_player.close();
+    m_player = nullptr;
     reset();
     return;
   }
 
-  if (!m_player.isLoaded())
+  if (!m_player)
   {
     int index = ofRandom(m_credits.size());
-    m_player.load(m_credits[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
+    m_player = &m_credits[index];
+    m_player->play();
   }
-  else if (m_player.getIsMovieDone())
+  else if (m_player->getIsMovieDone())
   {
-    m_player.close();
+    m_player = nullptr;
     reset();
   }
 }
@@ -404,19 +403,18 @@ void ofApp::timeout()
 void Player::lose()
 {
   ofLogVerbose("Simon Leone") << "Lose !";
-  if (!m_player.isLoaded())
+  if (!m_player)
   {
-    std::vector<std::vector<ofFile>* > colors =
+    std::vector<std::vector<ofVideoPlayer>* > colors =
     { &m_perdu_rouge, &m_perdu_jaune, &m_perdu_vert, &m_perdu_bleu };
     auto choice = colors[m_seq_it->first];
     int index = ofRandom(choice->size());
-    m_player.load((*choice)[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
+    m_player = &(*choice)[index];
+    m_player->play();
   }
-  else if (m_player.getIsMovieDone())
+  else if (m_player->getIsMovieDone())
   {
-    m_player.close();
+    m_player = nullptr;
     status=CREDITS;
   }
 }
@@ -429,18 +427,17 @@ void Player::win()
   {
     return;
   }
-  if (!m_player.isLoaded())
+  if (!m_player)
   {
-    std::vector<std::vector<ofFile>* > colors =
+    std::vector<std::vector<ofVideoPlayer>* > colors =
     { &m_gagne_rouge, &m_gagne_jaune, &m_gagne_vert, &m_gagne_bleu };
     auto choice = colors[m_sequence.back().first];
     int index = ofRandom(choice->size());
-    m_player.load((*choice)[index].path());
-    m_player.setLoopState(OF_LOOP_NONE);
-    m_player.play();
-  } else if (m_player.getIsMovieDone())
+    m_player = &(*choice)[index];
+    m_player->play();
+  } else if (m_player->getIsMovieDone())
   {
-    m_player.close();
+    m_player = nullptr;
     reset();
   }
 }
@@ -451,23 +448,23 @@ void Player::play_movie_sequence()
                             << m_seq_it->first << " " <<  m_sequence.size() << " "
                             << *m_answer_it << " " << m_answer.size();
 
-  if (!m_player.isLoaded() || m_player.getIsMovieDone())
+  if (!m_player || m_player->getIsMovieDone())
   {
     // si on a déjà joué toutes les réponses
     if ( m_seq_it == m_sequence.end() )
     {
+      m_player = nullptr;
+
       // et qu'on a joué assez de séquences
       if(m_sequence.size() == sequence_size)
       {
         // alors on a gagné
-        m_player.close();
         status = WIN;
         new_tone = true;
       } else {
         // sinon on ajoute une nouvelle séquence et on recommence
-        m_player.close();
         m_sequence.push_back(random_choice());
-        ofLogNotice("Simon Leone") << "choose another sequence: " << m_sequence.back().second
+        ofLogNotice("Simon Leone") << "choose another sequence "
                                   << " size: " << m_sequence.size();
 
         current_player++;
@@ -493,16 +490,15 @@ void Player::play_movie_sequence()
       {
         ofClear(colors[color]);
 
-        m_player.load(m_seq_it->second);
-        m_player.setLoopState(OF_LOOP_NONE);
-        m_player.play();
+        m_player = &m_seq_it->second;
+        m_player->play();
 
         m_seq_it++;
         m_answer_it++;
       }
       else
       {
-        m_player.close();
+        m_player = nullptr;
         status = LOSE;
         new_tone = true;
       }
@@ -558,11 +554,13 @@ void ofApp::draw()
     if (!serial.isInitialized())
       fbo.draw(0.,0.);
   }
-  else if(m_player.isPlaying())
+  else if(m_player && m_player->isPlaying())
   {
-    draw_video(m_player);
-  } else if(!players.empty() && players[current_player].m_player.isPlaying())
-    draw_video(players[current_player].m_player);
+    draw_video(*m_player);
+  } else if(!players.empty()
+            && players[current_player].m_player
+            && players[current_player].m_player->isPlaying())
+    draw_video(*(players[current_player].m_player));
 
   if (status == WAIT_PLAYER)
   {
@@ -632,7 +630,7 @@ void ofApp::start_new_game()
   if(players.size()>0)
   {
     status = START_SPLASH;
-    m_player.close();
+    m_player =  nullptr;
     ofResetElapsedTimeCounter();
     current_player = 0;
   }

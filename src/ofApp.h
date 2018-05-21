@@ -18,29 +18,29 @@ class Player {
       BLUE
     };
 
-    std::vector<std::pair<Player::SimonColor,std::string>> m_sequence{};
-    std::vector<std::pair<Player::SimonColor,std::string>>::iterator m_seq_it{};
+    std::vector<std::pair<Player::SimonColor,ofVideoPlayer&>> m_sequence{};
+    std::vector<std::pair<Player::SimonColor,ofVideoPlayer&>>::iterator m_seq_it{};
     std::vector<Player::SimonColor> m_answer{};
     std::vector<Player::SimonColor>::iterator m_answer_it{};
 
-    std::vector<ofFile> m_vert;
-    std::vector<ofFile> m_jaune;
-    std::vector<ofFile> m_rouge;
-    std::vector<ofFile> m_bleu;
+    std::vector<ofVideoPlayer> m_vert;
+    std::vector<ofVideoPlayer> m_jaune;
+    std::vector<ofVideoPlayer> m_rouge;
+    std::vector<ofVideoPlayer> m_bleu;
 
-    std::vector<ofFile> m_perdu_vert;
-    std::vector<ofFile> m_perdu_jaune;
-    std::vector<ofFile> m_perdu_rouge;
-    std::vector<ofFile> m_perdu_bleu;
+    std::vector<ofVideoPlayer> m_perdu_vert;
+    std::vector<ofVideoPlayer> m_perdu_jaune;
+    std::vector<ofVideoPlayer> m_perdu_rouge;
+    std::vector<ofVideoPlayer> m_perdu_bleu;
 
-    std::vector<ofFile> m_gagne_vert;
-    std::vector<ofFile> m_gagne_jaune;
-    std::vector<ofFile> m_gagne_rouge;
-    std::vector<ofFile> m_gagne_bleu;
+    std::vector<ofVideoPlayer> m_gagne_vert;
+    std::vector<ofVideoPlayer> m_gagne_jaune;
+    std::vector<ofVideoPlayer> m_gagne_rouge;
+    std::vector<ofVideoPlayer> m_gagne_bleu;
 
-    std::pair<Player::SimonColor,std::string> random_choice();
+    std::pair<Player::SimonColor,ofVideoPlayer&> random_choice();
 
-    ofVideoPlayer m_player;
+    ofVideoPlayer* m_player;
 };
 
 class ofApp : public ofBaseApp
@@ -62,12 +62,12 @@ class ofApp : public ofBaseApp
     void start_splash();
     void start_new_game();
 
-    std::vector<ofFile> m_wait;
-    std::vector<ofFile> m_credits;
-    std::vector<ofFile> m_splash;
+    std::vector<ofVideoPlayer> m_wait;
+    std::vector<ofVideoPlayer> m_credits;
+    std::vector<ofVideoPlayer> m_splash;
 
 
-    ofVideoPlayer m_player;
+    ofVideoPlayer* m_player;
 
     ofTrueTypeFont m_font;
 };

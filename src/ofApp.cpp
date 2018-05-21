@@ -428,6 +428,8 @@ void ofApp::wait_input()
           ;
       }
     }
+  } else {
+    ofLogNotice("Simon Leone") << "Serial not initialized";
   }
 }
 

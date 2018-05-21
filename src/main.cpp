@@ -10,6 +10,7 @@ int main()
 #endif
   auto window = ofCreateWindow(settings);
   auto app = make_shared<ofApp>();
+  ofHideCursor();
   ofRunApp(window, app);
 
   return ofRunMainLoop();

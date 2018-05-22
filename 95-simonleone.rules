@@ -1,0 +1,2 @@
+KERNEL=="ttyACM0", ENV{SYSTEMD_WANTS}="simonleone.service"
+

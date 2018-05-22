@@ -31,3 +31,5 @@ The application can run on Raspberry Pi. There is a service file to enable autos
     sudo systemctl start simonleone
 
 But it appears that stopping the app with `systemctl stop simonleone` doesn't work. Instead you can unplug the USB device or run `sudo killall Simon_Leone-armv7-Release`.
+
+Instead of starting simonleone at boot, you can start it when Simon Pocket is plugged in thanks to the udev rules `95-simonleone.rules`. Just put it in `/etc/udev/rules.d`. Of course if Simon Pocket is already plugged in when RPi starts, then Simon Leone start right after.

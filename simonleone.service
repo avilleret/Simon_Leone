@@ -1,0 +1,11 @@
+[Unit]
+Description=Simon Leone Service
+ 
+[Service]
+ExecStart=/home/pi/Simon_Leone-armv7-Release
+StandardOutput=null
+ 
+[Install]
+WantedBy=multi-user.target
+Alias=simonleone.service
+

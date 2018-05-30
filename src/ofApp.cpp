@@ -845,6 +845,10 @@ void ofApp::record_key(Player::SimonColor key)
     if(m_serial_device.isOpen())
     {
       reset_serial();
+      m_serial_device.writeByte(RED_OFF);
+      m_serial_device.writeByte(GREEN_OFF);
+      m_serial_device.writeByte(YELLOW_OFF);
+      m_serial_device.writeByte(BLUE_OFF);
       m_serial_device.writeByte(LOSE_TONE);
       ofSleepMillis(1500);
     }

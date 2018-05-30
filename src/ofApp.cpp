@@ -2,7 +2,8 @@
 #include "simon.h"
 
 std::vector<ofFile> shuffle_file_list(std::string path);
-float delay{1.}; // time in second between each note
+float delay{1.}; // answer timeout in second
+float melody_tempo{1.};// time in second between each note
 float factor{1.}; // initial delay
 
 enum GameStatus { WAIT_INPUT, // wait for input
@@ -137,11 +138,10 @@ void ofApp::load_settings()
 
   if (m_xml.load("settings.xml"))
   {
-
-    if(m_xml.pushTag("SerialDevice")) {
-      m_serial_device_string = m_xml.getValue("dev",m_serial_device_string);
-      m_xml.popTag();
-    }
+    m_serial_device_string = m_xml.getValue("dev",m_serial_device_string);
+    ofLogNotice("Simon Leone") << "Dev: " << m_serial_device_string;
+    melody_tempo = m_xml.getValue("tempo", melody_tempo);
+    ofLogNotice("Simon Leone") << "Tempo: " << melody_tempo;
 
     for (int i = 0; i<levelstr.size(); i++)
     {
@@ -154,8 +154,8 @@ void ofApp::load_settings()
       }
     }
   } else {
-    m_xml.addTag("SerialDevice");
     m_xml.addValue("dev",m_serial_device_string);
+    m_xml.addValue("tempo",melody_tempo);
 
     for (int i = 0; i<levelstr.size(); i++)
     {
@@ -325,9 +325,9 @@ void Player::play_melody()
     m_seq_it = m_sequence.begin();
     while ( m_seq_it != m_sequence.end() )
     {
-      ofSleepMillis(1000.*delay*0.1);
+      ofSleepMillis(1000.*melody_tempo*0.1);
       tone(m_seq_it->first);
-      ofSleepMillis(1000.*delay*0.9);
+      ofSleepMillis(1000.*melody_tempo*0.9);
       tone(-1);
       m_seq_it++;
     }
@@ -346,7 +346,7 @@ void Player::play_melody()
   {
     auto time = ofGetElapsedTimef();
 
-    if( time < delay)
+    if( time < melody_tempo)
     {
       if (m_seq_it == m_sequence.end())
       {

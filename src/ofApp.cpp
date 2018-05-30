@@ -78,12 +78,14 @@ std::pair<Player::SimonColor, std::string> Player::random_choice()
   auto file = shuffled->back();
   shuffled->pop_back();
 
+  /*
   while(!m_playerA.load(file.path()))
   {
     file = shuffled->back();
     shuffled->pop_back();
   }
   m_playerA.close();
+  */
   return {color, file.path()};
 }
 

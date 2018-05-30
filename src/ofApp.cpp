@@ -325,6 +325,12 @@ void Player::play_melody()
     }
     m_seq_it = m_sequence.begin();
     status = WAIT_INPUT;
+    // manual flush since flush() doesn't seem to work
+    while(m_serial_device.available())
+    {
+      uint8_t b=0;
+      m_serial_device.readByte(b);
+    }
     m_serial_device.flush();
     ofResetElapsedTimeCounter();
   }

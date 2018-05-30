@@ -297,12 +297,20 @@ void ofApp::start_splash(){
     m_player->load(m_splash[index].path());
     m_player->setLoopState(OF_LOOP_NONE);
     m_player->play();
+    m_serial_device.writeByte(RED_ON);
+    m_serial_device.writeByte(YELLOW_ON);
+    m_serial_device.writeByte(BLUE_ON);
+    m_serial_device.writeByte(GREEN_ON);
   }
   else if (m_player->getIsMovieDone())
   {
     m_player->close();
     status = PLAY_TONE;
     current_player=0;
+    m_serial_device.writeByte(RED_OFF);
+    m_serial_device.writeByte(YELLOW_OFF);
+    m_serial_device.writeByte(BLUE_OFF);
+    m_serial_device.writeByte(GREEN_OFF);
     ofResetElapsedTimeCounter();
   }
 }

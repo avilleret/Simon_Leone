@@ -254,6 +254,19 @@ void loop() {
       default:
         lock=false;
     }
+
+    switch(a)
+    {
+      case WIN_TONE:
+      case LOSE_TONE:
+        for(int i=0; i<4; i++)
+        {
+          digitalWrite(led_pins[i],LOW);
+        }
+        break;
+      default:
+        ;
+    }
   }
 
   for (int y=0; y<3; y++)
